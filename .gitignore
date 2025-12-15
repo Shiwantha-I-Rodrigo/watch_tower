@@ -1,0 +1,3 @@
+env/*
+dashboard/my-app/node_modules/*
+__pycache__/*
