@@ -1,15 +1,22 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-from fastapi.middleware.cors import CORSMiddleware      # for preventing cors errors with middleware
-import sqlite3
-import db_get, db_put, db_update, db_delete
 
+# cors preventing cors errors with middleware
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, HTTPException
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import sessionmaker
+from models_db import Base, User, Post
+from models_py import UserCreate, UserRead, PostCreate, PostRead
+
+
+# Create FastAPI app
 app = FastAPI()
+
 
 origins = [
     "http://localhost",
     "http://localhost:5173",
 ]
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -19,43 +26,62 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/users/get/{user_id}")
-def get_user(user_id: int):
-    logs = db_get.get("main.db","users","*",f"WHERE id = {user_id}")
-    if logs:
-        return logs
-    else:
-        return "error"
 
-@app.get("/users/delete/{user_id}")
-def get_user(user_id: int):
-    logs = db_delete.delete("main.db","users",f"id = {user_id}")
-    if logs:
-        return logs
-    else:
-        return "success"
+# Database setup
+# full_path : sqlite:////full/path/to/app.db | subfolder : sqlite:///./data/app.db | same folder : sqlite:///example.db
+engine = create_engine("sqlite:///./db/main.db", connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(bind=engine)
+Base.metadata.create_all(engine)
+# auto enable foreign key constraints on sqlite | since sqlite diables foreing key constraints by default for each new connection
+@event.listens_for(engine, "connect")
+def enable_foreign_keys(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
 
-class C_User(BaseModel):
-    username: str
-    password: str
 
-@app.post("/users/create")
-async def create_user(user: C_User):
-    logs = db_put.put("main.db","users","username,password",f"'{user.username}','{user.password}'")
-    if logs:
-        return logs
-    else:
-        return "success"
+# Dependency to get DB session
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-class U_User(BaseModel):
-    id:int
-    username: str
-    password: str
 
-@app.post("/users/update")
-async def create_user(user: U_User):
-    logs = db_update.update("main.db","users",f"username='{user.username}',password='{user.password}'",f"id={user.id}")
-    if logs:
-        return logs
-    else:
-        return "success"
+# create a user
+@app.post("/users/", response_model=UserRead)
+def create_user(user: UserCreate):
+    db = next(get_db())
+    db_user = User(name=user.name, age=user.age)
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+
+# list all users
+@app.get("/users/", response_model=list[UserRead])
+def list_users():
+    db = next(get_db())
+    users = db.query(User).all()
+    return users
+
+
+# create a post
+@app.post("/posts/", response_model=PostRead)
+def create_post(post: PostCreate):
+    db = next(get_db())
+    db_post = Post(title=post.title, user_id=post.user_id)
+    db.add(db_post)
+    db.commit()
+    db.refresh(db_post)
+    return db_post
+
+
+# list all posts
+@app.get("/posts/", response_model=list[PostRead])
+def list_posts():
+    db = next(get_db())
+    posts = db.query(Post).all()
+    return posts
