@@ -1,0 +1,65 @@
+# Ingestion & Data Handling Actions
+
+Ingest logs (syslog, agents, APIs, cloud services)
+Normalize events into a common schema
+Deduplicate events
+Tag events (e.g. vpn, admin_activity)
+Archive old data (cold storage)
+
+# Detection & Analytics Actions
+
+Correlation across multiple events
+Anomaly detection (baseline deviation)
+Sequence detection (kill chain patterns)
+Threat intel matching (IOCs)
+Risk scoring (user or asset risk)
+
+# Alert & Incident Actions
+
+Create alerts
+Suppress alerts (noise reduction)
+Deduplicate alerts
+Escalate alerts
+Auto-close alerts
+Group alerts into incidents
+Change alert status (open, acknowledged, closed)
+Assign alerts/incidents to analysts
+
+# Investigation & Hunting Actions
+
+Timeline reconstruction
+Link related events
+Threat hunting queries
+Add analyst notes
+Attach evidence
+
+# Response & Automation (SOAR-like Actions)
+
+Trigger playbooks
+Send notifications (email, Slack, PagerDuty)
+Disable user accounts
+Reset passwords
+
+# User & Access Management Actions
+
+Create / deactivate users
+Assign roles
+Review permissions
+Session tracking
+Enforce MFA policies
+Audit analyst actions
+
+# Configuration & Admin Actions
+
+Manage assets
+Enable/disable log sources
+Create/edit rules
+Tune detection thresholds
+Manage data retention
+Health checks
+
+# Performance & Scaling Actions
+
+Hot vs cold storage
+Rate limiting ingestion
+Drop low-value logs

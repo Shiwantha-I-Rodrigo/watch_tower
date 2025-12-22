@@ -1,5 +1,5 @@
 env/*
 dashboard/my-app/node_modules/*
 __pycache__/*
-logs.db
-main.db
+db/*
+dashboard/my-app/bootstrap*
