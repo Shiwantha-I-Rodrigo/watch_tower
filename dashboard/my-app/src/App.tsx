@@ -15,9 +15,9 @@ function App() {
   return (
     <BrowserRouter>
 
-        <div class="sidebar">
+        <div className="sidebar">
             <h2>Admin</h2>
-            <img src="src/assets/profile.png" class="rounded-circle profile"></img>
+            <img src="src/assets/profile.png" className="rounded-circle profile"></img>
             <a href="#">Home</a>
             <a href="#">Users</a>
             <a href="#">Roles</a>
@@ -30,7 +30,7 @@ function App() {
             <a href="#">Audits</a>
         </div>
 
-        <nav class="footer">
+        <nav className="footer">
             <Link to="/">Home</Link> |{" "}
             <Link to="/users">Users</Link> |{" "}
             <Link to="/roles">Roles</Link> |{" "}
