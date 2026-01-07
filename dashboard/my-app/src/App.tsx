@@ -10,6 +10,7 @@ import Rules from "./pages/Rules.tsx";
 import Alerts from "./pages/Alerts.tsx";
 import Incidents from "./pages/Incidents.tsx";
 import Audits from "./pages/Audits.tsx";
+import 'react-toastify/dist/ReactToastify.css';
 
 function App() {
   return (

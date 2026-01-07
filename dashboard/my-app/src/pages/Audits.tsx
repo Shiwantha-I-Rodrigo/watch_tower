@@ -1,26 +1,33 @@
 import React, { useEffect, useState } from "react";
+import { ToastContainer, toast } from "react-toastify";
 
-function Audits() {
-    const [audits, setAudit] = useState<Audit[]>([]);
-    const [selectedAudit, setselectedAudit] = useState<Audit | null>(null);
+function UserManagement() {
+    const [users, setUsers] = useState<User[]>([]);
+    const [selectedUser, setSelectedUser] = useState<User | null>(null);
+    const [page, setPage] = useState(0);
 
-    type Audit = {
+    type User = {
         id: number;
-        name: string;
-        email: string;
+        title: string;
+        description: string;
+        category: string;
+        price: number;
+        discountPercentage: number;
+        rating: number;
+        stock: number;
     };
 
-    // Fetch audits on load
+    // Fetch users on load
     useEffect(() => {
-        fetch("https://jsonplaceholder.typicode.com/users")
+        fetch("https://dummyjson.com/products?limit=10&skip=0")
             .then(res => res.json())
-            .then(data => setAudit(data))
-            .catch(err => console.error("Error fetching audits:", err));
+            .then(data => setUsers(data.products))
+            .catch(err => console.error("Error fetching users:", err));
     }, []);
 
     // Handle Modify button click
-    const handleModifyClick = (audit: Audit) => {
-        setselectedAudit({ ...audit }); // clone audit into form state
+    const handleModifyClick = (user: User) => {
+        setSelectedUser({ ...user }); // clone user into form state
     };
 
     // Handle form input change
@@ -28,48 +35,77 @@ function Audits() {
         e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
 
-        setselectedAudit(prev => {
+        setSelectedUser(prev => {
             if (!prev) return prev;
 
             return {
                 ...prev,
-                [name as keyof Audit]: value
+                [name as keyof User]: value
             };
         });
     };
 
-    // Submit updated audit
+    // Submit updated user
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
-        if (!selectedAudit) return;
+        if (!selectedUser) return;
 
-        fetch(`https://dummyjson.com/audits/${selectedAudit.id}`, {
+        if (confirm("Are you sure you want to update this?")){
+
+        fetch(`https://dummyjson.com/products/${selectedUser.id}`, {
             method: "PUT",
             headers: {
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify(selectedAudit)
+            body: JSON.stringify(selectedUser)
         })
             .then(res => res.json())
-            .then((updatedAudit: Audit) => {
-                setAudit(prevAudits =>
-                    prevAudits.map(u =>
-                        u.id === updatedAudit.id ? updatedAudit : u
+            .then((updatedUser: User) => {
+                setUsers(prevUsers =>
+                    prevUsers.map(u =>
+                        u.id === updatedUser.id ? updatedUser : u
                     )
                 );
-                setselectedAudit(null);
+                toast.success("User Updated!");
             })
-            .catch(err => console.error("Error updating audit:", err));
+            .catch(err => console.error("Error updating user:", err));
+        }
+    };
+
+    // Handle next page
+    const handleNext = () => {
+
+        setPage(p => p + 10)
+        console.log(page);
+
+        fetch(`https://dummyjson.com/products?limit=10&skip=${page + 10}`)
+            .then(res => res.json())
+            .then(data => setUsers(data.products))
+            .catch(err => console.error("Error fetching users:", err));
+    };
+
+    // Handle prev page
+    const handlePrev = () => {
+
+        if (page >= 10){
+            setPage(p => p - 10)
+        }
+        console.log(page);
+
+        fetch(`https://dummyjson.com/products?limit=10&skip=${page - 10}`)
+            .then(res => res.json())
+            .then(data => setUsers(data.products))
+            .catch(err => console.error("Error fetching users:", err));
     };
 
     return (
         <div className="row content g-4">
 
             <div className="col-12 d-flex justify-content-start">
-                <h2>Audit Management</h2>
+                <h2>User Management</h2>
             </div>
-            <div className={selectedAudit ? "col-md-12 col-lg-6" : "col-12"}>
+            <div className={selectedUser ? "col-md-12 col-lg-6" : "col-12"}>
                 <div className="card h-100">
                     <h5 className="card-title card_title">System Users</h5>
                     <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
@@ -86,14 +122,14 @@ function Audits() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {audits.map(audit => (
-                                    <tr key={audit.id}>
-                                        <td>{audit.id}</td>
-                                        <td>{audit.name}</td>
-                                        <td>{audit.email}</td>
-                                        <td>{audit.email}</td>
+                                {users.map(user => (
+                                    <tr key={user.id}>
+                                        <td>{user.id}</td>
+                                        <td>{user.title}</td>
+                                        <td>User</td>
+                                        <td>Active</td>
                                         <td>
-                                            <button onClick={() => handleModifyClick(audit)}>
+                                            <button onClick={() => handleModifyClick(user)}>
                                                 <i className="bi bi-pencil-square"></i>
                                             </button>
                                         </td>
@@ -104,22 +140,22 @@ function Audits() {
                     </div>
                     <div className="card-body row justify-content-center">
                         <div className="col-3">
-                                <a href="#" className="btn btn-primary w-100">Previous</a>
+                            <button type="button" className="btn btn-primary w-100" onClick={() => handlePrev()}>Previous</button>
                         </div>
                         <div className="col-3">
-                                <a href="#" className="btn btn-primary w-100">Refresh</a>
+                                <a href="#" className="btn btn-primary w-100">Reset</a>
                         </div>
                         <div className="col-3">
-                                <a href="#" className="btn btn-primary w-100">Next</a>
+                            <button type="button" className="btn btn-primary w-100" onClick={() => handleNext()}>Next</button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {selectedAudit && (<div className="col-md-12 col-lg-6">
+            {selectedUser && (<div className="col-md-12 col-lg-6">
                 <div className="card h-100">
 
-                    <h5 className="card-title card_title">Audit Alerts</h5>
+                    <h5 className="card-title card_title">Modify User</h5>
                     <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
                         <form onSubmit={handleSubmit}>
@@ -130,8 +166,8 @@ function Audits() {
                                 </div>
                                 <div className="col-8">
                                     <input
-                                        name="name"
-                                        value={selectedAudit.name}
+                                        name="title"
+                                        value={selectedUser.title}
                                         onChange={handleChange}
                                         required
                                     />
@@ -144,8 +180,8 @@ function Audits() {
                                 </div>
                                 <div className="col-8">
                                     <input
-                                        name="email"
-                                        value={selectedAudit.email}
+                                        name="category"
+                                        value={selectedUser.category}
                                         onChange={handleChange}
                                         required
                                     />
@@ -158,10 +194,35 @@ function Audits() {
                                 </div>
                                 <div className="col-8">
                                     <input
-                                        name="status"
-                                        value={selectedAudit.email}
+                                        name="price"
+                                        value={selectedUser.price}
                                         onChange={handleChange}
                                         required
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="row">
+                                <div className="col-4">
+                                    <label>Username:</label>
+                                </div>
+                                <div className="col-8">
+                                    <input
+                                        name="rating"
+                                        value={selectedUser.rating}
+                                        onChange={handleChange}
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="row">
+                                <div className="col-4">
+                                    <label>Password:</label>
+                                </div>
+                                <div className="col-8">
+                                    <input
+                                        name="password"
                                     />
                                 </div>
                             </div>
@@ -173,7 +234,7 @@ function Audits() {
                                     <button type="submit" className="btn btn-primary w-100">Save</button>
                                 </div>
                                 <div className="col-3">
-                                    <button type="button" className="btn btn-primary w-100" onClick={() => setselectedAudit(null)}>Cancel</button>
+                                    <button type="button" className="btn btn-primary w-100" onClick={() => setSelectedUser(null)}>Cancel</button>
                                 </div>
 
                             </div>
@@ -183,9 +244,9 @@ function Audits() {
                 </div>
             </div>)}
 
-
+        <ToastContainer />
         </div>
     )
 }
 
-export default Audits;
+export default UserManagement;

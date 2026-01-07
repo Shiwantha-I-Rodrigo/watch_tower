@@ -40,3 +40,7 @@ Create React App Template
 Run Vite Server
 
     $ npx vite
+
+Run Dev Server
+
+    $ npm run dev
