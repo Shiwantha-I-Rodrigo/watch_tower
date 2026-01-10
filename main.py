@@ -77,6 +77,11 @@ def create_user(user_in: UserCreate, db: Session = Depends(get_db)):
         email=user_in.email,
         password_hash=user_in.password,  # In real app: hash this!
     )
+    
+    if user_in.role_ids:
+        roles = db.query(Role).filter(Role.id.in_(user_in.role_ids)).all()
+        new_user.roles = roles
+    
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
@@ -95,15 +100,24 @@ def update_user(user_id: int, user_in: UserUpdate, db: Session = Depends(get_db)
 
     update_data = user_in.dict(exclude_unset=True)
 
+    # Update simple fields
     for field, value in update_data.items():
         if field == "password":
             user.password_hash = value  # hash in real app
-        else:
+        elif field != "role_ids":  # skip roles here
             setattr(user, field, value)
+
+    # Update roles if provided
+    if "role_ids" in update_data:
+        # Query roles from DB
+        new_roles = db.query(Role).filter(Role.id.in_(update_data["role_ids"])).all()
+        # Replace user's roles with new list
+        user.roles = new_roles  # SQLAlchemy handles removal of missing roles
 
     db.commit()
     db.refresh(user)
     return user
+
 
 @app.delete("/users/{user_id}", status_code=204)
 def delete_user(

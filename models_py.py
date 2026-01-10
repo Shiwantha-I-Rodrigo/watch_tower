@@ -19,6 +19,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str  # Only used on creation
+    role_ids: Optional[List[int]] = []
 
 class UserRead(UserBase):
     id: int
@@ -33,6 +34,7 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     is_active: Optional[bool] = None
     password: Optional[str] = None  
+    role_ids: Optional[List[int]]
 
 
 class AssetBase(BaseModel):

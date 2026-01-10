@@ -5,6 +5,7 @@ function UserManagement() {
     const [users, setUsers] = useState<User[]>([]);
     const [selectedUser, setSelectedUser] = useState<UserForm | null>(null);
     const [page, setPage] = useState(0);
+    const [roles, setRoles] = useState<Role[]>([]);
 
     type User = {
         username: string,
@@ -28,6 +29,10 @@ function UserManagement() {
             .then(res => res.json())
             .then(data => setUsers(data))
             .catch(err => console.error("Error fetching users:", err));
+        fetch("http://127.0.0.1:8000/roles")
+            .then(res => res.json())
+            .then(data => setRoles(data))
+            .catch(err => console.error("Error fetching roles:", err));
     }, []);
 
     // Handle Modify button click
@@ -62,6 +67,7 @@ function UserManagement() {
             email: selectedUser!.email,
             is_active: selectedUser!.is_active,
             password: selectedUser!.password,
+            role_ids: selectedUser.roles?.map(r => r.id) || [],
         };
 
         fetch("http://127.0.0.1:8000/users/", {
@@ -100,6 +106,7 @@ function UserManagement() {
             email: selectedUser.email,
             is_active: selectedUser.is_active,
             // password: newPassword, // only if changing password
+            role_ids: selectedUser.roles?.map(r => r.id) || [],
         };
 
         fetch(`http://127.0.0.1:8000/users/${selectedUser.id}`, {
@@ -160,9 +167,9 @@ function UserManagement() {
         setPage(p => p + 10)
         console.log(page);
 
-        fetch(`https://dummyjson.com/products?limit=10&skip=${page + 10}`)
+        fetch(`http://127.0.0.1:8000/users/?skip=${page + 10}&limit=50`)
             .then(res => res.json())
-            .then(data => setUsers(data.products))
+            .then(data => setUsers(data))
             .catch(err => console.error("Error fetching users:", err));
     };
 
@@ -174,9 +181,9 @@ function UserManagement() {
         }
         console.log(page);
 
-        fetch(`https://dummyjson.com/products?limit=10&skip=${page - 10}`)
+        fetch(`http://127.0.0.1:8000/users/?skip=${page>10 ? page - 10 : 0}&limit=50`)
             .then(res => res.json())
-            .then(data => setUsers(data.products))
+            .then(data => setUsers(data))
             .catch(err => console.error("Error fetching users:", err));
     };
 
@@ -191,10 +198,6 @@ function UserManagement() {
                     <h5 className="card-title card_title">System Users</h5>
                     <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
-                        <button
-                            className="btn btn-success"
-                            onClick={() => setSelectedUser({ username: "", email: "", password: "", is_active: true })}
-                        >Add User</button>
                         {/*TABLE*/}
                         <table cellPadding="1" className="w-100">
                             <thead>
@@ -219,7 +222,7 @@ function UserManagement() {
                                             <button onClick={() => handleModifyClick(user)}>
                                                 <i className="bi bi-pencil-square"></i>
                                             </button>
-                                            <button onClick={() => handleDeleteUser(user.id)}>
+                                            <button className="m-2" onClick={() => handleDeleteUser(user.id)}>
                                                 <i className="bi bi-trash"></i>
                                             </button>
                                         </td>
@@ -233,7 +236,10 @@ function UserManagement() {
                             <button type="button" className="btn btn-primary w-100" onClick={() => handlePrev()}>Previous</button>
                         </div>
                         <div className="col-3">
-                                <a href="#" className="btn btn-primary w-100">Reset</a>
+                            <button
+                                className="btn btn-success w-100"
+                                onClick={() => setSelectedUser({ username: "", email: "", password: "", is_active: true })}
+                            >Add User</button>
                         </div>
                         <div className="col-3">
                             <button type="button" className="btn btn-primary w-100" onClick={() => handleNext()}>Next</button>
@@ -245,7 +251,7 @@ function UserManagement() {
             {selectedUser && (<div className="col-md-12 col-lg-6">
                 <div className="card h-100">
 
-                    <h5 className="card-title card_title">Modify User</h5>
+                    <h5 className="card-title card_title">{selectedUser.id ? "Modify User" : "Add New User"}</h5>
                     <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
                         <form onSubmit={selectedUser.id ? handleSubmit : handleCreateUser}>
@@ -264,41 +270,54 @@ function UserManagement() {
                                 </div>
                             </div>
 
-                            {/* <div className="row">
-                                <div className="col-4">
-                                    <label>Role:</label>
-                                </div>
-                                <div className="col-8">
-                                    <input
-                                        name="roles"
-                                        value={selectedUser.roles}
-                                        onChange={handleChange}
-                                        required
-                                    />
-                                </div>
-                            </div> */}
-
                             <div className="row">
                                 <div className="col-4">
-                                    <label>Status:</label>
+                                    <label>Roles:</label>
                                 </div>
-                                <div className="col-1 ms-2 form-check">
-                                    <input
-                                        id="flexCheckChecked"
-                                        className="form-check-input"
-                                        type="checkbox"
-                                        name="is_active"
-                                        checked={selectedUser.is_active}
-                                        onChange={(e) =>
-                                            setSelectedUser({
-                                                ...selectedUser,
-                                                is_active: e.target.checked,
-                                            })
-                                        }
-                                    />
+                                <div className="col-8">
+                                    <select
+                                    className="form-select"
+                                    size={3}
+                                    name="roles"
+                                    multiple
+                                    value={selectedUser.roles?.map(r => r.id.toString()) || []} // <-- convert IDs to strings
+                                    onChange={(e) => {
+                                        const options = Array.from(e.target.selectedOptions);
+                                        const selectedRoles = options.map(
+                                        o => roles.find(r => r.id === parseInt(o.value))! // <-- convert back to number
+                                        );
+                                        setSelectedUser(prev => ({ ...prev, roles: selectedRoles }));
+                                    }}
+                                    >
+                                    {roles.map(role => (
+                                        <option key={role.id} value={role.id.toString()}> {/* <-- string value */}
+                                        {role.name}
+                                        </option>
+                                    ))}
+                                    </select>
                                 </div>
-                                <div className="col-4 text-start">
-                                    {selectedUser.is_active ? "Active" : "Inactive"}
+                            </div>
+
+                            <div className="row my-3">
+                                <div className="col-4">
+                                    <label htmlFor="statusSelect">Status:</label>
+                                </div>
+
+                                <div className="col-8">
+                                    <select
+                                    id="statusSelect"
+                                    className="form-select"
+                                    value={selectedUser.is_active ? "active" : "inactive"}
+                                    onChange={(e) =>
+                                        setSelectedUser({
+                                        ...selectedUser,
+                                        is_active: e.target.value === "active",
+                                        })
+                                    }
+                                    >
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                    </select>
                                 </div>
                             </div>
 
