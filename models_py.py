@@ -2,6 +2,15 @@ from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel, EmailStr
 
+class RoleBase(BaseModel):
+    name: str
+
+class RoleRead(RoleBase):
+    id: int
+
+    class Config:
+        orm_mode = True
+
 
 class UserBase(BaseModel):
     username: str
@@ -13,21 +22,17 @@ class UserCreate(UserBase):
 
 class UserRead(UserBase):
     id: int
-    roles: List[str] = []  # Return role names
+    roles: List[RoleRead]  # Return role names
     created_at: datetime
 
     class Config:
         orm_mode = True
 
-
-class RoleBase(BaseModel):
-    name: str
-
-class RoleRead(RoleBase):
-    id: int
-
-    class Config:
-        orm_mode = True
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    is_active: Optional[bool] = None
+    password: Optional[str] = None  
 
 
 class AssetBase(BaseModel):

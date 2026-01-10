@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker, Session
 from typing import List
 from models_db import Base, User, Role, UserRole, Asset, Event, RawLog, Rule, RuleCondition, Alert, Incident, AuditLog
 from models_py import ( 
-    UserCreate, UserRead, 
+    UserCreate, UserRead, UserUpdate,
     RoleRead, RoleBase, 
     UserRoleBase, UserRoleRead, 
     AssetCreate, AssetRead, 
@@ -47,7 +47,7 @@ app.add_middleware(
 # full_path : sqlite:////full/path/to/app.db | subfolder : sqlite:///./data/app.db | same folder : sqlite:///example.db
 engine = create_engine("sqlite:///./db/main.db", connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(bind=engine)
-Base.metadata.create_all(engine)
+# Base.metadata.create_all(engine)
 # auto enable foreign key constraints on sqlite | since sqlite diables foreing key constraints by default for each new connection
 @event.listens_for(engine, "connect")
 def enable_foreign_keys(dbapi_connection, connection_record):
@@ -86,6 +86,36 @@ def create_user(user_in: UserCreate, db: Session = Depends(get_db)):
 def get_users(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
     users = db.query(User).offset(skip).limit(limit).all()
     return users
+
+@app.put("/users/{user_id}", response_model=UserRead)
+def update_user(user_id: int, user_in: UserUpdate, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    update_data = user_in.dict(exclude_unset=True)
+
+    for field, value in update_data.items():
+        if field == "password":
+            user.password_hash = value  # hash in real app
+        else:
+            setattr(user, field, value)
+
+    db.commit()
+    db.refresh(user)
+    return user
+
+@app.delete("/users/{user_id}", status_code=204)
+def delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    db.delete(user)
+    db.commit()
 
 
 # Roles --------------------------------------------------------------------------------------------------------------------

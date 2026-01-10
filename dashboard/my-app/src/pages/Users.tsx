@@ -3,25 +3,30 @@ import { ToastContainer, toast } from "react-toastify";
 
 function UserManagement() {
     const [users, setUsers] = useState<User[]>([]);
-    const [selectedUser, setSelectedUser] = useState<User | null>(null);
+    const [selectedUser, setSelectedUser] = useState<UserForm | null>(null);
     const [page, setPage] = useState(0);
 
     type User = {
-        id: number;
-        title: string;
-        description: string;
-        category: string;
-        price: number;
-        discountPercentage: number;
-        rating: number;
-        stock: number;
+        username: string,
+        email: string,
+        is_active: boolean,
+        id: number,
+        roles: Role[],
+        created_at: string,
     };
+
+    type Role = {
+        id: number;
+        name: string;
+    };
+
+    type UserForm = Partial<User> & { password?: string };
 
     // Fetch users on load
     useEffect(() => {
-        fetch("https://dummyjson.com/products?limit=10&skip=0")
+        fetch("http://127.0.0.1:8000/users/?skip=0&limit=50")
             .then(res => res.json())
-            .then(data => setUsers(data.products))
+            .then(data => setUsers(data))
             .catch(err => console.error("Error fetching users:", err));
     }, []);
 
@@ -31,46 +36,122 @@ function UserManagement() {
     };
 
     // Handle form input change
-    const handleChange = (
-        e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target;
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value, type, checked } = e.target;
 
         setSelectedUser(prev => {
             if (!prev) return prev;
 
             return {
                 ...prev,
-                [name as keyof User]: value
+                [name]: type === "checkbox" ? checked : value
             };
         });
+    };
+
+    // Create user
+    const handleCreateUser = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+
+        if (!selectedUser) return;
+
+        if (!confirm("Are you sure you want to create this user?")) return;
+
+       const payload = {
+            username: selectedUser!.username,
+            email: selectedUser!.email,
+            is_active: selectedUser!.is_active,
+            password: selectedUser!.password,
+        };
+
+        fetch("http://127.0.0.1:8000/users/", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+        })
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error("Failed to create user");
+                }
+                return res.json();
+            })
+            .then((newUser: User) => {
+                setUsers(prev => [...prev, newUser]);
+                toast.success("User created!");
+                setSelectedUser(null);
+            })
+            .catch(err => {
+                console.error("Error creating user:", err);
+                toast.error("Create failed");
+            });
     };
 
     // Submit updated user
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-
         if (!selectedUser) return;
 
-        if (confirm("Are you sure you want to update this?")){
+        if (!confirm("Are you sure you want to update this?")) return;
 
-        fetch(`https://dummyjson.com/products/${selectedUser.id}`, {
+        const payload = {
+            username: selectedUser.username,
+            email: selectedUser.email,
+            is_active: selectedUser.is_active,
+            // password: newPassword, // only if changing password
+        };
+
+        fetch(`http://127.0.0.1:8000/users/${selectedUser.id}`, {
             method: "PUT",
             headers: {
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             },
-            body: JSON.stringify(selectedUser)
+            body: JSON.stringify(payload),
         })
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error("Failed to update user");
+                }
+                return res.json();
+            })
             .then((updatedUser: User) => {
                 setUsers(prevUsers =>
                     prevUsers.map(u =>
                         u.id === updatedUser.id ? updatedUser : u
                     )
                 );
-                toast.success("User Updated!");
+                toast.success("User updated!");
             })
-            .catch(err => console.error("Error updating user:", err));
-        }
+            .catch(err => {
+                console.error("Error updating user:", err);
+                toast.error("Update failed");
+            });
+    };
+
+    // delete user
+    const handleDeleteUser = (userId: number) => {
+        if (!confirm("Are you sure you want to delete this user?")) return;
+
+        fetch(`http://127.0.0.1:8000/users/${userId}`, {
+            method: "DELETE",
+        })
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error("Failed to delete user");
+                }
+
+                // Remove user from local state
+                setUsers(prevUsers =>
+                    prevUsers.filter(user => user.id !== userId)
+                );
+
+                toast.success("User deleted!");
+            })
+            .catch(err => {
+                console.error("Error deleting user:", err);
+                toast.error("Delete failed");
+            });
     };
 
     // Handle next page
@@ -110,6 +191,10 @@ function UserManagement() {
                     <h5 className="card-title card_title">System Users</h5>
                     <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
+                        <button
+                            className="btn btn-success"
+                            onClick={() => setSelectedUser({ username: "", email: "", password: "", is_active: true })}
+                        >Add User</button>
                         {/*TABLE*/}
                         <table cellPadding="1" className="w-100">
                             <thead>
@@ -118,6 +203,7 @@ function UserManagement() {
                                     <th>Name</th>
                                     <th>Role</th>
                                     <th>Status</th>
+                                    <th>E-mail</th>
                                     <th>Modify</th>
                                 </tr>
                             </thead>
@@ -125,12 +211,16 @@ function UserManagement() {
                                 {users.map(user => (
                                     <tr key={user.id}>
                                         <td>{user.id}</td>
-                                        <td>{user.title}</td>
-                                        <td>User</td>
-                                        <td>Active</td>
+                                        <td>{user.username}</td>
+                                        <td>{user.roles.map(role => (<span key={role.id}>{role.name}</span>))}</td>
+                                        <td>{user.is_active ? "Active" : "Inactive"}</td>
+                                        <td>{user.email}</td>
                                         <td>
                                             <button onClick={() => handleModifyClick(user)}>
                                                 <i className="bi bi-pencil-square"></i>
+                                            </button>
+                                            <button onClick={() => handleDeleteUser(user.id)}>
+                                                <i className="bi bi-trash"></i>
                                             </button>
                                         </td>
                                     </tr>
@@ -158,7 +248,7 @@ function UserManagement() {
                     <h5 className="card-title card_title">Modify User</h5>
                     <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
-                        <form onSubmit={handleSubmit}>
+                        <form onSubmit={selectedUser.id ? handleSubmit : handleCreateUser}>
 
                             <div className="row">
                                 <div className="col-4">
@@ -166,50 +256,60 @@ function UserManagement() {
                                 </div>
                                 <div className="col-8">
                                     <input
-                                        name="title"
-                                        value={selectedUser.title}
+                                        name="username"
+                                        value={selectedUser.username}
                                         onChange={handleChange}
                                         required
                                     />
                                 </div>
                             </div>
 
-                            <div className="row">
+                            {/* <div className="row">
                                 <div className="col-4">
                                     <label>Role:</label>
                                 </div>
                                 <div className="col-8">
                                     <input
-                                        name="category"
-                                        value={selectedUser.category}
+                                        name="roles"
+                                        value={selectedUser.roles}
                                         onChange={handleChange}
                                         required
                                     />
                                 </div>
-                            </div>
+                            </div> */}
 
                             <div className="row">
                                 <div className="col-4">
                                     <label>Status:</label>
                                 </div>
-                                <div className="col-8">
+                                <div className="col-1 ms-2 form-check">
                                     <input
-                                        name="price"
-                                        value={selectedUser.price}
-                                        onChange={handleChange}
-                                        required
+                                        id="flexCheckChecked"
+                                        className="form-check-input"
+                                        type="checkbox"
+                                        name="is_active"
+                                        checked={selectedUser.is_active}
+                                        onChange={(e) =>
+                                            setSelectedUser({
+                                                ...selectedUser,
+                                                is_active: e.target.checked,
+                                            })
+                                        }
                                     />
+                                </div>
+                                <div className="col-4 text-start">
+                                    {selectedUser.is_active ? "Active" : "Inactive"}
                                 </div>
                             </div>
 
                             <div className="row">
                                 <div className="col-4">
-                                    <label>Username:</label>
+                                    <label>Email:</label>
                                 </div>
                                 <div className="col-8">
                                     <input
-                                        name="rating"
-                                        value={selectedUser.rating}
+                                        name="email"
+                                        value={selectedUser.email}
                                         onChange={handleChange}
                                         required
                                     />
@@ -223,6 +323,9 @@ function UserManagement() {
                                 <div className="col-8">
                                     <input
                                         name="password"
+                                        type="password"
+                                        value={selectedUser.password || ""}
+                                        onChange={handleChange}
                                     />
                                 </div>
                             </div>
@@ -231,7 +334,9 @@ function UserManagement() {
                                 <div className="col-6">
                                 </div>
                                 <div className="col-3">
-                                    <button type="submit" className="btn btn-primary w-100">Save</button>
+                                    <button type="submit" className="btn btn-primary w-100">
+                                        {selectedUser.id ? "Save" : "Create"}
+                                    </button>
                                 </div>
                                 <div className="col-3">
                                     <button type="button" className="btn btn-primary w-100" onClick={() => setSelectedUser(null)}>Cancel</button>
