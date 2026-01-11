@@ -91,6 +91,10 @@ class RawLogRead(RawLogBase):
     class Config:
         orm_mode = True
 
+class RawLogUpdate(BaseModel):
+    raw_payload: dict | None = None
+    event_id: int | None = None
+
 
 class RuleBase(BaseModel):
     name: str

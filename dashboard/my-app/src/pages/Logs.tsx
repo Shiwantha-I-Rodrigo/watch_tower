@@ -1,102 +1,197 @@
 import React, { useEffect, useState } from "react";
 import { ToastContainer, toast } from "react-toastify";
 
-function UserManagement() {
-    const [users, setUsers] = useState<User[]>([]);
-    const [selectedUser, setSelectedUser] = useState<User | null>(null);
+function LogManagement() {
     const [page, setPage] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
+    const [logs, setLogs] = useState<RawLog[]>([]);
+    const [selectedLog, setSelectedLog] = useState<RawLogForm | null>(null);
 
-    type User = {
+    type Asset = {
         id: number;
-        title: string;
-        description: string;
-        category: string;
-        price: number;
-        discountPercentage: number;
-        rating: number;
-        stock: number;
+        name: string;
+        asset_type: string;
+        ip_address: string;
+        hostname: string;
+        environment: string;
     };
 
-    // Fetch users on load
+    type Event = {
+        id: number;
+        event_type: string;
+        severity: string;
+        message: string;
+        timestamp: string;
+        asset: Asset;
+    };
+
+    type RawLog = {
+        id: number;
+        raw_payload: Record<string, any>;
+        ingested_at: string;
+        event: Event;
+    };
+
+    type RawLogForm = {
+        id?: number;
+        event_id: number;
+        raw_payload: string;
+    };
+
+    // Fetch logs on load
     useEffect(() => {
-        fetch("https://dummyjson.com/products?limit=10&skip=0")
-            .then(res => res.json())
-            .then(data => setUsers(data.products))
-            .catch(err => console.error("Error fetching users:", err));
+    fetch("http://127.0.0.1:8000/rawlogs/?skip=0&limit=50")
+        .then(res => res.json())
+        .then(data => setLogs(data))
+        .catch(err => console.error("Error fetching logs:", err));
     }, []);
 
     // Handle Modify button click
-    const handleModifyClick = (user: User) => {
-        setSelectedUser({ ...user }); // clone user into form state
+    const handleModifyClick = (log: RawLog) => {
+        setSelectedLog({
+            id: log.id,
+            event_id: log.event.id,
+            raw_payload: JSON.stringify(log.raw_payload, null, 2),
+        });
     };
 
     // Handle form input change
     const handleChange = (
-        e: React.ChangeEvent<HTMLInputElement>) => {
+        e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
 
-        setSelectedUser(prev => {
+        setSelectedLog(prev => {
             if (!prev) return prev;
+
+            // numeric fields
+            if (name === "event_id") {
+                return {
+                    ...prev,
+                    event_id: Number(value),
+                };
+            }
+
+            // raw_payload stays STRING here
+            if (name === "raw_payload") {
+                return {
+                    ...prev,
+                    raw_payload: value,
+                };
+            }
 
             return {
                 ...prev,
-                [name as keyof User]: value
+                [name]: value,
             };
         });
     };
 
-    // Submit updated user
-    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+
+    // Create log
+    const handleCreateLog = (e: React.ChangeEvent<HTMLFormElement>) => {
         e.preventDefault();
+        if (!selectedLog) return;
 
-        if (!selectedUser) return;
-
-        if (confirm("Are you sure you want to update this?")){
-
-        fetch(`https://dummyjson.com/products/${selectedUser.id}`, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(selectedUser)
+        fetch("http://127.0.0.1:8000/rawlogs/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                event_id: selectedLog.event_id,
+                raw_payload: JSON.parse(selectedLog.raw_payload),
+            }),
         })
             .then(res => res.json())
-            .then((updatedUser: User) => {
-                setUsers(prevUsers =>
-                    prevUsers.map(u =>
-                        u.id === updatedUser.id ? updatedUser : u
-                    )
-                );
-                toast.success("User Updated!");
+            .then((newLog: RawLog) => {
+                setLogs(prev => [...prev, newLog]);
+                toast.success("Log created!");
+                setSelectedLog(null);
             })
-            .catch(err => console.error("Error updating user:", err));
-        }
+            .catch(() => toast.error("Failed to create log"));
     };
 
-    // Handle next page
-    const handleNext = () => {
 
-        setPage(p => p + 10)
-        console.log(page);
+    // Submit updated log
+    const handleSubmit = (e: React.ChangeEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        if (!selectedLog?.id) return;
 
-        fetch(`https://dummyjson.com/products?limit=10&skip=${page + 10}`)
+        fetch(`http://127.0.0.1:8000/rawlogs/${selectedLog.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                raw_payload: JSON.parse(selectedLog.raw_payload),
+                event_id: selectedLog.event_id,
+            }),
+        })
             .then(res => res.json())
-            .then(data => setUsers(data.products))
-            .catch(err => console.error("Error fetching users:", err));
+            .then((updated: RawLog) => {
+                setLogs(prev =>
+                    prev.map(l => (l.id === updated.id ? updated : l))
+                );
+                toast.success("Log updated!");
+            })
+            .catch(() => toast.error("Update failed"));
+    };
+
+
+    // delete log
+    const handleDeleteLog = (logId: number) => {
+        if (!confirm("Delete this log?")) return;
+
+        fetch(`http://127.0.0.1:8000/rawlogs/${logId}`, {
+            method: "DELETE",
+        })
+            .then(() => {
+                setLogs(prev => prev.filter(l => l.id !== logId));
+                toast.success("Log deleted!");
+            })
+            .catch(() => toast.error("Delete failed"));
+    };
+
+
+    // Handle next page
+    const handleNext = async () => {
+        try {
+            const nextPage = page + 10;
+
+            const res = await fetch(
+            `http://127.0.0.1:8000/logs/?skip=${nextPage}&limit=10`
+            );
+            const data = await res.json();
+
+            if (!data || data.length === 0) {
+            console.log("No more logs");
+            setHasMore(false);
+            return;
+            }
+
+            setLogs(data);
+            setPage(nextPage);
+        } catch (err) {
+            console.error("Error fetching logs:", err);
+        }
     };
 
     // Handle prev page
-    const handlePrev = () => {
+    const handlePrev = async () => {
+        if (page <= 0) return;
 
-        if (page >= 10){
-            setPage(p => p - 10)
+        const prevPage = Math.max(page - 10, 0);
+
+        try {
+            const res = await fetch(
+            `http://127.0.0.1:8000/logs/?skip=${prevPage}&limit=10`
+            );
+            const data = await res.json();
+
+            if (!data || data.length === 0) return;
+
+            setLogs(data);
+            setHasMore(true);
+            setPage(prevPage);
+        } catch (err) {
+            console.error("Error fetching logs:", err);
         }
-        console.log(page);
-
-        fetch(`https://dummyjson.com/products?limit=10&skip=${page - 10}`)
-            .then(res => res.json())
-            .then(data => setUsers(data.products))
-            .catch(err => console.error("Error fetching users:", err));
     };
 
     return (
@@ -105,7 +200,7 @@ function UserManagement() {
             <div className="col-12 d-flex justify-content-start">
                 <h2>User Management</h2>
             </div>
-            <div className={selectedUser ? "col-md-12 col-lg-6" : "col-12"}>
+            <div className={selectedLog ? "col-md-12 col-lg-6" : "col-12"}>
                 <div className="card h-100">
                     <h5 className="card-title card_title">System Users</h5>
                     <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
@@ -115,22 +210,25 @@ function UserManagement() {
                             <thead>
                                 <tr>
                                     <th>ID</th>
-                                    <th>Name</th>
-                                    <th>Role</th>
-                                    <th>Status</th>
+                                    <th>Event ID</th>
+                                    <th>Ingested Time</th>
+                                    <th>Payload</th>
                                     <th>Modify</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {users.map(user => (
-                                    <tr key={user.id}>
-                                        <td>{user.id}</td>
-                                        <td>{user.title}</td>
-                                        <td>User</td>
-                                        <td>Active</td>
+                                {logs.map(log => (
+                                    <tr key={log.id}>
+                                        <td>{log.id}</td>
+                                        <td>{log.event.id}</td>
+                                        <td>{log.ingested_at}</td>
+                                        <td>{<pre>{JSON.stringify(log.raw_payload, null, 2)}</pre>}</td>
                                         <td>
-                                            <button onClick={() => handleModifyClick(user)}>
+                                            <button onClick={() => handleModifyClick(log)}>
                                                 <i className="bi bi-pencil-square"></i>
+                                            </button>
+                                            <button className="mx-2 bg-danger" onClick={() => handleDeleteLog(log.id)}>
+                                                <i className="bi bi-trash"></i>
                                             </button>
                                         </td>
                                     </tr>
@@ -140,34 +238,38 @@ function UserManagement() {
                     </div>
                     <div className="card-body row justify-content-center">
                         <div className="col-3">
-                            <button type="button" className="btn btn-primary w-100" onClick={() => handlePrev()}>Previous</button>
+                            <button type="button" className="btn btn-primary w-100" disabled={page === 0} onClick={() => handlePrev()}>Previous</button>
                         </div>
                         <div className="col-3">
-                                <a href="#" className="btn btn-primary w-100">Reset</a>
+                            <button
+                                className="btn btn-success w-100"
+                                onClick={() => setSelectedLog({ event_id: 0, raw_payload: ""})}
+                            >Add User</button>
                         </div>
                         <div className="col-3">
-                            <button type="button" className="btn btn-primary w-100" onClick={() => handleNext()}>Next</button>
+                            <button type="button" className="btn btn-primary w-100" disabled={!hasMore} onClick={() => handleNext()}>Next</button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {selectedUser && (<div className="col-md-12 col-lg-6">
+            {selectedLog && (<div className="col-md-12 col-lg-6">
                 <div className="card h-100">
 
-                    <h5 className="card-title card_title">Modify User</h5>
+                    <h5 className="card-title card_title">{selectedLog.id ? "Modify User" : "Add New User"}</h5>
                     <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
-                        <form onSubmit={handleSubmit}>
+                        <form onSubmit={selectedLog.id ? handleSubmit : handleCreateLog}>
 
                             <div className="row">
                                 <div className="col-4">
-                                    <label>Name:</label>
+                                    <label>Event ID:</label>
                                 </div>
                                 <div className="col-8">
                                     <input
-                                        name="title"
-                                        value={selectedUser.title}
+                                        className="rounded text-dark bg-light border border-2 border-dark"
+                                        name="event_id"
+                                        value={selectedLog.event_id}
                                         onChange={handleChange}
                                         required
                                     />
@@ -176,53 +278,15 @@ function UserManagement() {
 
                             <div className="row">
                                 <div className="col-4">
-                                    <label>Role:</label>
+                                    <label>Payload:</label>
                                 </div>
                                 <div className="col-8">
-                                    <input
-                                        name="category"
-                                        value={selectedUser.category}
+                                    <textarea
+                                        className="rounded text-dark bg-light border border-2 border-dark"
+                                        name="raw_payload"
+                                        value={selectedLog.raw_payload}
                                         onChange={handleChange}
                                         required
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="row">
-                                <div className="col-4">
-                                    <label>Status:</label>
-                                </div>
-                                <div className="col-8">
-                                    <input
-                                        name="price"
-                                        value={selectedUser.price}
-                                        onChange={handleChange}
-                                        required
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="row">
-                                <div className="col-4">
-                                    <label>Username:</label>
-                                </div>
-                                <div className="col-8">
-                                    <input
-                                        name="rating"
-                                        value={selectedUser.rating}
-                                        onChange={handleChange}
-                                        required
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="row">
-                                <div className="col-4">
-                                    <label>Password:</label>
-                                </div>
-                                <div className="col-8">
-                                    <input
-                                        name="password"
                                     />
                                 </div>
                             </div>
@@ -231,10 +295,12 @@ function UserManagement() {
                                 <div className="col-6">
                                 </div>
                                 <div className="col-3">
-                                    <button type="submit" className="btn btn-primary w-100">Save</button>
+                                    <button type="submit" className="btn btn-success w-100">
+                                        {selectedLog.id ? "Save" : "Create"}
+                                    </button>
                                 </div>
                                 <div className="col-3">
-                                    <button type="button" className="btn btn-primary w-100" onClick={() => setSelectedUser(null)}>Cancel</button>
+                                    <button type="button" className="btn btn-primary w-100" onClick={() => setSelectedLog(null)}>Cancel</button>
                                 </div>
 
                             </div>
@@ -249,4 +315,4 @@ function UserManagement() {
     )
 }
 
-export default UserManagement;
+export default LogManagement;

@@ -12,7 +12,7 @@ from models_py import (
     UserRoleBase, UserRoleRead, 
     AssetCreate, AssetRead, 
     EventCreate, EventRead, EventUpdate,
-    RawLogCreate, RawLogRead,
+    RawLogCreate, RawLogRead, RawLogUpdate,
     RuleCreate, RuleRead,
     RuleConditionCreate, RuleConditionRead,
     AlertCreate, AlertRead,
@@ -313,6 +313,41 @@ def create_rawlog(rawlog_in: RawLogCreate, db: Session = Depends(get_db)):
 @app.get("/rawlogs/", response_model=List[RawLogRead])
 def get_rawlogs(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
     return db.query(RawLog).offset(skip).limit(limit).all()
+
+@app.put("/rawlogs/{rawlog_id}", response_model=RawLogRead)
+def update_rawlog(
+    rawlog_id: int,
+    rawlog_in: RawLogUpdate,
+    db: Session = Depends(get_db),
+):
+    rawlog = db.query(RawLog).get(rawlog_id)
+    if not rawlog:
+        raise HTTPException(status_code=404, detail="RawLog not found")
+
+    if rawlog_in.event_id is not None:
+        event = db.query(Event).get(rawlog_in.event_id)
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
+        rawlog.event_id = rawlog_in.event_id
+
+    if rawlog_in.raw_payload is not None:
+        rawlog.raw_payload = rawlog_in.raw_payload
+
+    db.commit()
+    db.refresh(rawlog)
+    return rawlog
+
+@app.delete("/rawlogs/{rawlog_id}", status_code=204)
+def delete_rawlog(
+    rawlog_id: int,
+    db: Session = Depends(get_db),
+):
+    rawlog = db.query(RawLog).get(rawlog_id)
+    if not rawlog:
+        raise HTTPException(status_code=404, detail="RawLog not found")
+
+    db.delete(rawlog)
+    db.commit()
 
 
 # Rules --------------------------------------------------------------------------------------------------------------------
