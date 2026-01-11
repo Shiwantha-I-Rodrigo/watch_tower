@@ -222,7 +222,7 @@ function LogManagement() {
                                         <td>{log.id}</td>
                                         <td>{log.event.id}</td>
                                         <td>{log.ingested_at}</td>
-                                        <td>{<pre>{JSON.stringify(log.raw_payload, null, 2)}</pre>}</td>
+                                        <td className="json-cell">{JSON.stringify(log.raw_payload)}</td>
                                         <td>
                                             <button onClick={() => handleModifyClick(log)}>
                                                 <i className="bi bi-pencil-square"></i>
@@ -282,8 +282,9 @@ function LogManagement() {
                                 </div>
                                 <div className="col-8">
                                     <textarea
-                                        className="rounded text-dark bg-light border border-2 border-dark"
+                                        className="rounded text-dark bg-light border border-2 border-dark w-100"
                                         name="raw_payload"
+                                        style={{ height: "300px" }}
                                         value={selectedLog.raw_payload}
                                         onChange={handleChange}
                                         required

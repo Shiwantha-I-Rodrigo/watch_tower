@@ -107,3 +107,11 @@ body {
     margin-bottom: 5px;
     list-style: none;
 }
+
+.json-cell{
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  text-align: justify;
+  margin: 0px;
+}
