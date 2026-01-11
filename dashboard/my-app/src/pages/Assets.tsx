@@ -1,102 +1,200 @@
 import React, { useEffect, useState } from "react";
 import { ToastContainer, toast } from "react-toastify";
 
-function UserManagement() {
-    const [users, setUsers] = useState<User[]>([]);
-    const [selectedUser, setSelectedUser] = useState<User | null>(null);
+function AssetManagement() {
     const [page, setPage] = useState(0);
+    const [assets, setAssets] = useState<Asset[]>([]);
+    const [hasMore, setHasMore] = useState(true);
+    const [selectedAsset, setSelectedAsset] = useState<AssetForm | null>(null);
 
-    type User = {
+    type Asset = {
         id: number;
-        title: string;
-        description: string;
-        category: string;
-        price: number;
-        discountPercentage: number;
-        rating: number;
-        stock: number;
+        name: string;
+        asset_type: string;
+        ip_address: string;
+        hostname: string;
+        environment: string;
     };
 
-    // Fetch users on load
+    type AssetForm = Partial<Asset>
+
+    // Fetch assets on load
     useEffect(() => {
-        fetch("https://dummyjson.com/products?limit=10&skip=0")
+        fetch("http://127.0.0.1:8000/assets/?skip=0&limit=10")
             .then(res => res.json())
-            .then(data => setUsers(data.products))
-            .catch(err => console.error("Error fetching users:", err));
+            .then(data => setAssets(data))
+            .catch(err => console.error("Error fetching assets:", err));
     }, []);
 
     // Handle Modify button click
-    const handleModifyClick = (user: User) => {
-        setSelectedUser({ ...user }); // clone user into form state
+    const handleModifyClick = (asset: Asset) => {
+        setSelectedAsset({ ...asset });
     };
 
     // Handle form input change
-    const handleChange = (
-        e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
 
-        setSelectedUser(prev => {
+        setSelectedAsset(prev => {
             if (!prev) return prev;
 
             return {
                 ...prev,
-                [name as keyof User]: value
+                [name]: value
             };
         });
     };
 
-    // Submit updated user
-    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    // Create asset
+    const handleCreateAsset = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
-        if (!selectedUser) return;
+        if (!selectedAsset) return;
 
-        if (confirm("Are you sure you want to update this?")){
+        if (!confirm("Are you sure you want to create this asset?")) return;
 
-        fetch(`https://dummyjson.com/products/${selectedUser.id}`, {
+       const payload = {
+            name: selectedAsset!.name,
+            asset_type: selectedAsset!.asset_type,
+            ip_address: selectedAsset!.ip_address,
+            hostname: selectedAsset!.hostname,
+            environment: selectedAsset!.environment
+        };
+
+        fetch("http://127.0.0.1:8000/assets/", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+        })
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error("Failed to create asset");
+                }
+                return res.json();
+            })
+            .then((newAsset: Asset) => {
+                setAssets(prev => [...prev, newAsset]);
+                toast.success("User created!");
+                setSelectedAsset(null);
+            })
+            .catch(err => {
+                console.error("Error creating user:", err);
+                toast.error("Create failed");
+            });
+    };
+
+    // Submit updated asset
+    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        if (!selectedAsset) return;
+
+        if (!confirm("Are you sure you want to update this?")) return;
+
+        const payload = {
+            name: selectedAsset.name,
+            asset_type: selectedAsset.asset_type,
+            ip_address: selectedAsset.ip_address,
+            hostname: selectedAsset.hostname,
+            environment: selectedAsset.environment
+        };
+
+        fetch(`http://127.0.0.1:8000/assets/${selectedAsset.id}`, {
             method: "PUT",
             headers: {
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             },
-            body: JSON.stringify(selectedUser)
+            body: JSON.stringify(payload),
         })
-            .then(res => res.json())
-            .then((updatedUser: User) => {
-                setUsers(prevUsers =>
-                    prevUsers.map(u =>
-                        u.id === updatedUser.id ? updatedUser : u
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error("Failed to update asset");
+                }
+                return res.json();
+            })
+            .then((updatedAsset: Asset) => {
+                setAssets(prevAssets =>
+                    prevAssets.map(u =>
+                        u.id === updatedAsset.id ? updatedAsset : u
                     )
                 );
-                toast.success("User Updated!");
+                toast.success("Asset updated!");
             })
-            .catch(err => console.error("Error updating user:", err));
-        }
+            .catch(err => {
+                console.error("Error updating asset:", err);
+                toast.error("Update failed");
+            });
+    };
+
+    // delete asset
+    const handleDeleteAsset = (assetId: number) => {
+        if (!confirm("Are you sure you want to delete this user?")) return;
+
+        fetch(`http://127.0.0.1:8000/assets/${assetId}`, {
+            method: "DELETE",
+        })
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error("Failed to delete asset");
+                }
+
+                // Remove user from local state
+                setAssets(prevAssets =>
+                    prevAssets.filter(asset => asset.id !== assetId)
+                );
+
+                toast.success("User deleted!");
+            })
+            .catch(err => {
+                console.error("Error deleting asset:", err);
+                toast.error("Delete failed");
+            });
     };
 
     // Handle next page
-    const handleNext = () => {
+    const handleNext = async () => {
+        try {
+            const nextPage = page + 10;
 
-        setPage(p => p + 10)
-        console.log(page);
+            const res = await fetch(
+            `http://127.0.0.1:8000/users/?skip=${nextPage}&limit=10`
+            );
+            const data = await res.json();
 
-        fetch(`https://dummyjson.com/products?limit=10&skip=${page + 10}`)
-            .then(res => res.json())
-            .then(data => setUsers(data.products))
-            .catch(err => console.error("Error fetching users:", err));
+            if (!data || data.length === 0) {
+            console.log("No more users");
+            setHasMore(false);
+            return;
+            }
+
+            setAssets(data);
+            setPage(nextPage);
+        } catch (err) {
+            console.error("Error fetching users:", err);
+        }
     };
 
     // Handle prev page
-    const handlePrev = () => {
+    const handlePrev = async () => {
+        if (page <= 0) return;
 
-        if (page >= 10){
-            setPage(p => p - 10)
+        const prevPage = Math.max(page - 10, 0);
+
+        try {
+            const res = await fetch(
+            `http://127.0.0.1:8000/users/?skip=${prevPage}&limit=10`
+            );
+            const data = await res.json();
+
+            if (!data || data.length === 0) return;
+
+            setAssets(data);
+            setHasMore(true);
+            setPage(prevPage);
+        } catch (err) {
+            console.error("Error fetching users:", err);
         }
-        console.log(page);
-
-        fetch(`https://dummyjson.com/products?limit=10&skip=${page - 10}`)
-            .then(res => res.json())
-            .then(data => setUsers(data.products))
-            .catch(err => console.error("Error fetching users:", err));
     };
 
     return (
@@ -105,7 +203,7 @@ function UserManagement() {
             <div className="col-12 d-flex justify-content-start">
                 <h2>User Management</h2>
             </div>
-            <div className={selectedUser ? "col-md-12 col-lg-6" : "col-12"}>
+            <div className={selectedAsset ? "col-md-12 col-lg-6" : "col-12"}>
                 <div className="card h-100">
                     <h5 className="card-title card_title">System Users</h5>
                     <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
@@ -116,21 +214,28 @@ function UserManagement() {
                                 <tr>
                                     <th>ID</th>
                                     <th>Name</th>
-                                    <th>Role</th>
-                                    <th>Status</th>
+                                    <th>Asset Type</th>
+                                    <th>IP Address</th>
+                                    <th>Hostname</th>
+                                    <th>Environment</th>
                                     <th>Modify</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {users.map(user => (
-                                    <tr key={user.id}>
-                                        <td>{user.id}</td>
-                                        <td>{user.title}</td>
-                                        <td>User</td>
-                                        <td>Active</td>
+                                {assets.map(asset => (
+                                    <tr key={asset.id}>
+                                        <td>{asset.id}</td>
+                                        <td>{asset.name}</td>
+                                        <td>{asset.asset_type}</td>
+                                        <td>{asset.ip_address}</td>
+                                        <td>{asset.hostname}</td>
+                                        <td>{asset.environment}</td>
                                         <td>
-                                            <button onClick={() => handleModifyClick(user)}>
+                                            <button onClick={() => handleModifyClick(asset)}>
                                                 <i className="bi bi-pencil-square"></i>
+                                            </button>
+                                            <button className="mx-2 bg-danger" onClick={() => handleDeleteAsset(asset.id)}>
+                                                <i className="bi bi-trash"></i>
                                             </button>
                                         </td>
                                     </tr>
@@ -140,25 +245,28 @@ function UserManagement() {
                     </div>
                     <div className="card-body row justify-content-center">
                         <div className="col-3">
-                            <button type="button" className="btn btn-primary w-100" onClick={() => handlePrev()}>Previous</button>
+                            <button type="button" className="btn btn-primary w-100" disabled={page === 0} onClick={() => handlePrev()}>Previous</button>
                         </div>
                         <div className="col-3">
-                                <a href="#" className="btn btn-primary w-100">Reset</a>
+                            <button
+                                className="btn btn-success w-100"
+                                onClick={() => setSelectedAsset({ name: "", asset_type: "", ip_address: "", hostname: "", environment: "" })}
+                            >Add User</button>
                         </div>
                         <div className="col-3">
-                            <button type="button" className="btn btn-primary w-100" onClick={() => handleNext()}>Next</button>
+                            <button type="button" className="btn btn-primary w-100" disabled={!hasMore} onClick={() => handleNext()}>Next</button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {selectedUser && (<div className="col-md-12 col-lg-6">
+            {selectedAsset && (<div className="col-md-12 col-lg-6">
                 <div className="card h-100">
 
-                    <h5 className="card-title card_title">Modify User</h5>
+                    <h5 className="card-title card_title">{selectedAsset.id ? "Modify User" : "Add New User"}</h5>
                     <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
-                        <form onSubmit={handleSubmit}>
+                        <form onSubmit={selectedAsset.id ? handleSubmit : handleCreateAsset}>
 
                             <div className="row">
                                 <div className="col-4">
@@ -166,8 +274,9 @@ function UserManagement() {
                                 </div>
                                 <div className="col-8">
                                     <input
-                                        name="title"
-                                        value={selectedUser.title}
+                                        className="rounded text-dark bg-light border border-2 border-dark"
+                                        name="name"
+                                        value={selectedAsset.name}
                                         onChange={handleChange}
                                         required
                                     />
@@ -176,12 +285,13 @@ function UserManagement() {
 
                             <div className="row">
                                 <div className="col-4">
-                                    <label>Role:</label>
+                                    <label>Asset Type:</label>
                                 </div>
                                 <div className="col-8">
                                     <input
-                                        name="category"
-                                        value={selectedUser.category}
+                                        className="rounded text-dark bg-light border border-2 border-dark"
+                                        name="asset_type"
+                                        value={selectedAsset.asset_type}
                                         onChange={handleChange}
                                         required
                                     />
@@ -190,12 +300,13 @@ function UserManagement() {
 
                             <div className="row">
                                 <div className="col-4">
-                                    <label>Status:</label>
+                                    <label>IP Address:</label>
                                 </div>
                                 <div className="col-8">
                                     <input
-                                        name="price"
-                                        value={selectedUser.price}
+                                        className="rounded text-dark bg-light border border-2 border-dark"
+                                        name="ip_address"
+                                        value={selectedAsset.ip_address}
                                         onChange={handleChange}
                                         required
                                     />
@@ -204,12 +315,13 @@ function UserManagement() {
 
                             <div className="row">
                                 <div className="col-4">
-                                    <label>Username:</label>
+                                    <label>Hostname:</label>
                                 </div>
                                 <div className="col-8">
                                     <input
-                                        name="rating"
-                                        value={selectedUser.rating}
+                                        className="rounded text-dark bg-light border border-2 border-dark"
+                                        name="hostname"
+                                        value={selectedAsset.hostname}
                                         onChange={handleChange}
                                         required
                                     />
@@ -218,11 +330,15 @@ function UserManagement() {
 
                             <div className="row">
                                 <div className="col-4">
-                                    <label>Password:</label>
+                                    <label>Environment:</label>
                                 </div>
                                 <div className="col-8">
                                     <input
-                                        name="password"
+                                        className="rounded text-dark bg-light border border-2 border-dark"
+                                        name="environment"
+                                        value={selectedAsset.environment}
+                                        onChange={handleChange}
+                                        required
                                     />
                                 </div>
                             </div>
@@ -231,10 +347,12 @@ function UserManagement() {
                                 <div className="col-6">
                                 </div>
                                 <div className="col-3">
-                                    <button type="submit" className="btn btn-primary w-100">Save</button>
+                                    <button type="submit" className="btn btn-success w-100">
+                                        {selectedAsset.id ? "Save" : "Create"}
+                                    </button>
                                 </div>
                                 <div className="col-3">
-                                    <button type="button" className="btn btn-primary w-100" onClick={() => setSelectedUser(null)}>Cancel</button>
+                                    <button type="button" className="btn btn-primary w-100" onClick={() => setSelectedAsset(null)}>Cancel</button>
                                 </div>
 
                             </div>
@@ -249,4 +367,4 @@ function UserManagement() {
     )
 }
 
-export default UserManagement;
+export default AssetManagement;

@@ -180,26 +180,26 @@ def delete_role(
 
 
 # User_Roles --------------------------------------------------------------------------------------------------------------------
-@app.post("/user_roles/", response_model=UserRoleRead)
-def assign_role(user_role_in: UserRoleBase, db: Session = Depends(get_db)):
-    existing = db.query(UserRole).filter_by(
-        user_id=user_role_in.user_id, role_id=user_role_in.role_id
-    ).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="User already has this role")
+# @app.post("/user_roles/", response_model=UserRoleRead)
+# def assign_role(user_role_in: UserRoleBase, db: Session = Depends(get_db)):
+#     existing = db.query(UserRole).filter_by(
+#         user_id=user_role_in.user_id, role_id=user_role_in.role_id
+#     ).first()
+#     if existing:
+#         raise HTTPException(status_code=400, detail="User already has this role")
     
-    user_role = UserRole(
-        user_id=user_role_in.user_id,
-        role_id=user_role_in.role_id
-    )
-    db.add(user_role)
-    db.commit()
-    db.refresh(user_role)
-    return user_role
+#     user_role = UserRole(
+#         user_id=user_role_in.user_id,
+#         role_id=user_role_in.role_id
+#     )
+#     db.add(user_role)
+#     db.commit()
+#     db.refresh(user_role)
+#     return user_role
 
-@app.get("/user_roles/", response_model=List[UserRoleRead])
-def get_user_roles(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
-    return db.query(UserRole).offset(skip).limit(limit).all()
+# @app.get("/user_roles/", response_model=List[UserRoleRead])
+# def get_user_roles(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
+#     return db.query(UserRole).offset(skip).limit(limit).all()
 
 
 # Assets --------------------------------------------------------------------------------------------------------------------
@@ -215,6 +215,33 @@ def create_asset(asset_in: AssetCreate, db: Session = Depends(get_db)):
 def get_assets(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
     assets = db.query(Asset).offset(skip).limit(limit).all()
     return assets
+
+@app.put("/assets/{asset_id}", response_model=AssetRead)
+def update_asset(
+    asset_id: int,
+    asset_in: AssetCreate,
+    db: Session = Depends(get_db),
+):
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    for field, value in asset_in.dict().items():
+        setattr(asset, field, value)
+
+    db.commit()
+    db.refresh(asset)
+    return asset
+
+@app.delete("/assets/{asset_id}", status_code=204)
+def delete_asset(asset_id: int, db: Session = Depends(get_db)):
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    db.delete(asset)
+    db.commit()
+    return None
 
 
 # Events --------------------------------------------------------------------------------------------------------------------
