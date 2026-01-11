@@ -70,6 +70,12 @@ class EventRead(EventBase):
     class Config:
         orm_mode = True
 
+class EventUpdate(BaseModel):
+    event_type: Optional[str] = None
+    severity: Optional[str] = None
+    message: Optional[str] = None
+    asset_id: Optional[int] = None
+
 
 class RawLogBase(BaseModel):
     raw_payload: dict

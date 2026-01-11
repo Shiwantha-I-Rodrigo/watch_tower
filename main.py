@@ -11,7 +11,7 @@ from models_py import (
     RoleRead, RoleBase, 
     UserRoleBase, UserRoleRead, 
     AssetCreate, AssetRead, 
-    EventCreate, EventRead,
+    EventCreate, EventRead, EventUpdate,
     RawLogCreate, RawLogRead,
     RuleCreate, RuleRead,
     RuleConditionCreate, RuleConditionRead,
@@ -249,7 +249,7 @@ def delete_asset(asset_id: int, db: Session = Depends(get_db)):
 def create_event(event_in: EventCreate, db: Session = Depends(get_db)):
     asset = db.query(Asset).get(event_in.asset_id)
     if not asset:
-        raise HTTPException(status_code=404, detail="Asset not found")
+        raise HTTPException(status_code=404, detail="Event not found")
 
     event = Event(**event_in.dict())
     db.add(event)
@@ -261,6 +261,40 @@ def create_event(event_in: EventCreate, db: Session = Depends(get_db)):
 def get_events(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
     events = db.query(Event).offset(skip).limit(limit).all()
     return events
+
+@app.put("/events/{event_id}", response_model=EventRead)
+def update_event(
+    event_id: int,
+    event_in: EventUpdate,
+    db: Session = Depends(get_db),
+):
+    event = db.query(Event).get(event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    # If asset_id is being updated, validate it
+    if event_in.asset_id is not None:
+        asset = db.query(Asset).get(event_in.asset_id)
+        if not asset:
+            raise HTTPException(status_code=404, detail="Asset not found")
+
+    update_data = event_in.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(event, field, value)
+
+    db.commit()
+    db.refresh(event)
+    return event
+
+@app.delete("/events/{event_id}", status_code=204)
+def delete_event(event_id: int, db: Session = Depends(get_db)):
+    event = db.query(Event).get(event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    db.delete(event)
+    db.commit()
+    return None
 
 
 # Logs --------------------------------------------------------------------------------------------------------------------
