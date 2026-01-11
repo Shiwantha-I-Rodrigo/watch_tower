@@ -6,6 +6,7 @@ function UserManagement() {
     const [selectedUser, setSelectedUser] = useState<UserForm | null>(null);
     const [page, setPage] = useState(0);
     const [roles, setRoles] = useState<Role[]>([]);
+    const [hasMore, setHasMore] = useState(true);
 
     type User = {
         username: string,
@@ -25,7 +26,7 @@ function UserManagement() {
 
     // Fetch users on load
     useEffect(() => {
-        fetch("http://127.0.0.1:8000/users/?skip=0&limit=50")
+        fetch("http://127.0.0.1:8000/users/?skip=0&limit=10")
             .then(res => res.json())
             .then(data => setUsers(data))
             .catch(err => console.error("Error fetching users:", err));
@@ -162,30 +163,50 @@ function UserManagement() {
     };
 
     // Handle next page
-    const handleNext = () => {
+    const handleNext = async () => {
+        try {
+            const nextPage = page + 10;
 
-        setPage(p => p + 10)
-        console.log(page);
+            const res = await fetch(
+            `http://127.0.0.1:8000/users/?skip=${nextPage}&limit=10`
+            );
+            const data = await res.json();
 
-        fetch(`http://127.0.0.1:8000/users/?skip=${page + 10}&limit=50`)
-            .then(res => res.json())
-            .then(data => setUsers(data))
-            .catch(err => console.error("Error fetching users:", err));
+            if (!data || data.length === 0) {
+            console.log("No more users");
+            setHasMore(false);
+            return;
+            }
+
+            setUsers(data);
+            setPage(nextPage);
+        } catch (err) {
+            console.error("Error fetching users:", err);
+        }
     };
 
     // Handle prev page
-    const handlePrev = () => {
+    const handlePrev = async () => {
+        if (page <= 0) return;
 
-        if (page >= 10){
-            setPage(p => p - 10)
+        const prevPage = Math.max(page - 10, 0);
+
+        try {
+            const res = await fetch(
+            `http://127.0.0.1:8000/users/?skip=${prevPage}&limit=10`
+            );
+            const data = await res.json();
+
+            if (!data || data.length === 0) return;
+
+            setUsers(data);
+            setHasMore(true);
+            setPage(prevPage);
+        } catch (err) {
+            console.error("Error fetching users:", err);
         }
-        console.log(page);
-
-        fetch(`http://127.0.0.1:8000/users/?skip=${page>10 ? page - 10 : 0}&limit=50`)
-            .then(res => res.json())
-            .then(data => setUsers(data))
-            .catch(err => console.error("Error fetching users:", err));
     };
+
 
     return (
         <div className="row content g-4">
@@ -222,7 +243,7 @@ function UserManagement() {
                                             <button onClick={() => handleModifyClick(user)}>
                                                 <i className="bi bi-pencil-square"></i>
                                             </button>
-                                            <button className="m-2" onClick={() => handleDeleteUser(user.id)}>
+                                            <button className="mx-2 bg-danger" onClick={() => handleDeleteUser(user.id)}>
                                                 <i className="bi bi-trash"></i>
                                             </button>
                                         </td>
@@ -233,7 +254,7 @@ function UserManagement() {
                     </div>
                     <div className="card-body row justify-content-center">
                         <div className="col-3">
-                            <button type="button" className="btn btn-primary w-100" onClick={() => handlePrev()}>Previous</button>
+                            <button type="button" className="btn btn-primary w-100" disabled={page === 0} onClick={() => handlePrev()}>Previous</button>
                         </div>
                         <div className="col-3">
                             <button
@@ -242,7 +263,7 @@ function UserManagement() {
                             >Add User</button>
                         </div>
                         <div className="col-3">
-                            <button type="button" className="btn btn-primary w-100" onClick={() => handleNext()}>Next</button>
+                            <button type="button" className="btn btn-primary w-100" disabled={!hasMore} onClick={() => handleNext()}>Next</button>
                         </div>
                     </div>
                 </div>
@@ -262,6 +283,7 @@ function UserManagement() {
                                 </div>
                                 <div className="col-8">
                                     <input
+                                        className="rounded text-dark bg-light border border-2 border-dark"
                                         name="username"
                                         value={selectedUser.username}
                                         onChange={handleChange}
@@ -276,7 +298,7 @@ function UserManagement() {
                                 </div>
                                 <div className="col-8">
                                     <select
-                                    className="form-select"
+                                    className="form-select border border-2 border-dark"
                                     size={3}
                                     name="roles"
                                     multiple
@@ -306,7 +328,7 @@ function UserManagement() {
                                 <div className="col-8">
                                     <select
                                     id="statusSelect"
-                                    className="form-select"
+                                    className="form-select border border-2 border-dark"
                                     value={selectedUser.is_active ? "active" : "inactive"}
                                     onChange={(e) =>
                                         setSelectedUser({
@@ -327,6 +349,7 @@ function UserManagement() {
                                 </div>
                                 <div className="col-8">
                                     <input
+                                        className="rounded text-dark bg-light border border-2 border-dark"
                                         name="email"
                                         value={selectedUser.email}
                                         onChange={handleChange}
@@ -341,6 +364,7 @@ function UserManagement() {
                                 </div>
                                 <div className="col-8">
                                     <input
+                                        className="rounded text-dark bg-light border border-2 border-dark"
                                         name="password"
                                         type="password"
                                         value={selectedUser.password || ""}
@@ -353,7 +377,7 @@ function UserManagement() {
                                 <div className="col-6">
                                 </div>
                                 <div className="col-3">
-                                    <button type="submit" className="btn btn-primary w-100">
+                                    <button type="submit" className="btn btn-success w-100">
                                         {selectedUser.id ? "Save" : "Create"}
                                     </button>
                                 </div>
