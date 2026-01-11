@@ -1,7 +1,7 @@
 
 # cors preventing cors errors with middleware
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Path
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session
 from typing import List
@@ -147,6 +147,36 @@ def create_role(role_in: RoleBase, db: Session = Depends(get_db)):
 def get_roles(db: Session = Depends(get_db)):
     roles = db.query(Role).all()
     return roles
+
+@app.put("/roles/{role_id}", response_model=RoleRead)
+def update_role(
+    role_id: int = Path(..., gt=0),
+    role_in: RoleBase = ...,
+    db: Session = Depends(get_db),
+):
+    db_role = db.query(Role).filter(Role.id == role_id).first()
+
+    if not db_role:
+        raise HTTPException(status_code=404, detail="Role not found")
+
+    db_role.name = role_in.name
+
+    db.commit()
+    db.refresh(db_role)
+    return db_role
+
+@app.delete("/roles/{role_id}", status_code=204)
+def delete_role(
+    role_id: int = Path(..., gt=0),
+    db: Session = Depends(get_db),
+):
+    db_role = db.query(Role).filter(Role.id == role_id).first()
+
+    if not db_role:
+        raise HTTPException(status_code=404, detail="Role not found")
+
+    db.delete(db_role)
+    db.commit()
 
 
 # User_Roles --------------------------------------------------------------------------------------------------------------------
