@@ -353,7 +353,23 @@ def delete_rawlog(
 # Rules --------------------------------------------------------------------------------------------------------------------
 @app.post("/rules/", response_model=RuleRead)
 def create_rule(rule_in: RuleCreate, db: Session = Depends(get_db)):
-    rule = Rule(**rule_in.dict())
+    rule = Rule(
+        name=rule_in.name,
+        description=rule_in.description,
+        severity=rule_in.severity,
+        enabled=rule_in.enabled,
+    )
+
+    # Add conditions
+    for cond_in in rule_in.conditions:
+        rule.conditions.append(
+            RuleCondition(
+                field=cond_in.field,
+                operator=cond_in.operator,
+                value=cond_in.value,
+            )
+        )
+
     db.add(rule)
     db.commit()
     db.refresh(rule)
@@ -363,6 +379,48 @@ def create_rule(rule_in: RuleCreate, db: Session = Depends(get_db)):
 def get_rules(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
     return db.query(Rule).offset(skip).limit(limit).all()
 
+@app.put("/rules/{rule_id}", response_model=RuleRead)
+def update_rule(
+    rule_id: int,
+    rule_in: RuleCreate,
+    db: Session = Depends(get_db),
+):
+    rule = db.query(Rule).filter(Rule.id == rule_id).first()
+    if not rule:
+        raise HTTPException(status_code=404, detail="Rule not found")
+
+    # Update scalar fields
+    rule.name = rule_in.name
+    rule.description = rule_in.description
+    rule.severity = rule_in.severity
+    rule.enabled = rule_in.enabled
+
+    # Replace conditions
+    rule.conditions.clear()
+    for cond_in in rule_in.conditions:
+        rule.conditions.append(
+            RuleCondition(
+                field=cond_in.field,
+                operator=cond_in.operator,
+                value=cond_in.value,
+            )
+        )
+
+    db.commit()
+    db.refresh(rule)
+    return rule
+
+@app.delete("/rules/{rule_id}", status_code=204)
+def delete_rule(rule_id: int, db: Session = Depends(get_db)):
+    rule = db.query(Rule).filter(Rule.id == rule_id).first()
+    if not rule:
+        raise HTTPException(status_code=404, detail="Rule not found")
+
+    db.delete(rule)
+    db.commit()
+    return None
+
+# Rule_Conditions --------------------------------------------------------------------------------------------------------------------
 @app.post("/ruleconditions/", response_model=RuleConditionRead)
 def create_rule_condition(rc_in: RuleConditionCreate, db: Session = Depends(get_db)):
     rule = db.query(Rule).get(rc_in.rule_id)

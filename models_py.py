@@ -102,28 +102,27 @@ class RuleBase(BaseModel):
     severity: str
     enabled: bool = True
 
-class RuleCreate(RuleBase):
-    pass
-
-class RuleRead(RuleBase):
-    id: int
-    conditions: List["RuleConditionRead"] = []
-
-    class Config:
-        orm_mode = True
-
-
 class RuleConditionBase(BaseModel):
     field: str
     operator: str
     value: str
 
 class RuleConditionCreate(RuleConditionBase):
-    rule_id: int
+    pass
+
+class RuleCreate(RuleBase):
+    conditions: List[RuleConditionCreate] = []
 
 class RuleConditionRead(RuleConditionBase):
     id: int
     rule_id: int
+
+    class Config:
+        orm_mode = True
+
+class RuleRead(RuleBase):
+    id: int
+    conditions: List[RuleConditionRead] = []
 
     class Config:
         orm_mode = True
