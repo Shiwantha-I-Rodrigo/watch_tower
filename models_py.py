@@ -145,6 +145,10 @@ class AlertRead(AlertBase):
     class Config:
         orm_mode = True
 
+class AlertUpdate(BaseModel):
+    severity: Optional[str] = None
+    status: Optional[str] = None
+
 
 class IncidentBase(BaseModel):
     title: str

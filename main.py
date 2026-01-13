@@ -15,7 +15,7 @@ from models_py import (
     RawLogCreate, RawLogRead, RawLogUpdate,
     RuleCreate, RuleRead,
     RuleConditionCreate, RuleConditionRead,
-    AlertCreate, AlertRead,
+    AlertCreate, AlertRead, AlertUpdate,
     IncidentCreate, IncidentRead,
     AuditLogCreate, AuditLogRead,
     UserRoleBase, UserRoleRead,
@@ -117,7 +117,6 @@ def update_user(user_id: int, user_in: UserUpdate, db: Session = Depends(get_db)
     db.commit()
     db.refresh(user)
     return user
-
 
 @app.delete("/users/{user_id}", status_code=204)
 def delete_user(
@@ -420,22 +419,23 @@ def delete_rule(rule_id: int, db: Session = Depends(get_db)):
     db.commit()
     return None
 
-# Rule_Conditions --------------------------------------------------------------------------------------------------------------------
-@app.post("/ruleconditions/", response_model=RuleConditionRead)
-def create_rule_condition(rc_in: RuleConditionCreate, db: Session = Depends(get_db)):
-    rule = db.query(Rule).get(rc_in.rule_id)
-    if not rule:
-        raise HTTPException(status_code=404, detail="Rule not found")
-    
-    condition = RuleCondition(**rc_in.dict())
-    db.add(condition)
-    db.commit()
-    db.refresh(condition)
-    return condition
 
-@app.get("/ruleconditions/", response_model=List[RuleConditionRead])
-def get_rule_conditions(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
-    return db.query(RuleCondition).offset(skip).limit(limit).all()
+# Rule_Conditions --------------------------------------------------------------------------------------------------------------------
+# @app.post("/ruleconditions/", response_model=RuleConditionRead)
+# def create_rule_condition(rc_in: RuleConditionCreate, db: Session = Depends(get_db)):
+#     rule = db.query(Rule).get(rc_in.rule_id)
+#     if not rule:
+#         raise HTTPException(status_code=404, detail="Rule not found")
+    
+#     condition = RuleCondition(**rc_in.dict())
+#     db.add(condition)
+#     db.commit()
+#     db.refresh(condition)
+#     return condition
+
+# @app.get("/ruleconditions/", response_model=List[RuleConditionRead])
+# def get_rule_conditions(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
+#     return db.query(RuleCondition).offset(skip).limit(limit).all()
 
 
 # Alerts --------------------------------------------------------------------------------------------------------------------
@@ -455,6 +455,32 @@ def create_alert(alert_in: AlertCreate, db: Session = Depends(get_db)):
 @app.get("/alerts/", response_model=List[AlertRead])
 def get_alerts(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
     return db.query(Alert).offset(skip).limit(limit).all()
+
+@app.patch("/alerts/{alert_id}", response_model=AlertRead)
+def update_alert(
+    alert_id: int,
+    alert_in: AlertUpdate,
+    db: Session = Depends(get_db),
+):
+    alert = db.query(Alert).get(alert_id)
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+
+    for field, value in alert_in.dict(exclude_unset=True).items():
+        setattr(alert, field, value)
+
+    db.commit()
+    db.refresh(alert)
+    return alert
+
+@app.delete("/alerts/{alert_id}", status_code=204)
+def delete_alert(alert_id: int, db: Session = Depends(get_db)):
+    alert = db.query(Alert).get(alert_id)
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+
+    db.delete(alert)
+    db.commit()
 
 
 # Incidents --------------------------------------------------------------------------------------------------------------------
