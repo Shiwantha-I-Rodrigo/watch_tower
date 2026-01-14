@@ -16,7 +16,7 @@ from models_py import (
     RuleCreate, RuleRead,
     RuleConditionCreate, RuleConditionRead,
     AlertCreate, AlertRead, AlertUpdate,
-    IncidentCreate, IncidentRead,
+    IncidentCreate, IncidentRead, IncidentUpdate,
     AuditLogCreate, AuditLogRead,
     UserRoleBase, UserRoleRead,
     IndicatorCreate, IndicatorRead,
@@ -490,24 +490,78 @@ def create_incident(inc_in: IncidentCreate, db: Session = Depends(get_db)):
         title=inc_in.title,
         description=inc_in.description,
         status=inc_in.status,
-        severity=inc_in.severity
+        severity=inc_in.severity,
     )
+
+    if inc_in.alert_ids:
+        alerts = (
+            db.query(Alert)
+            .filter(Alert.id.in_(inc_in.alert_ids))
+            .all()
+        )
+        incident.alerts.extend(alerts)
+
     db.add(incident)
-    db.commit()
-    
-    # Link alerts if any
-    for alert_id in inc_in.alert_ids:
-        alert = db.query(Alert).get(alert_id)
-        if alert:
-            incident.alerts.append(alert)
-    
     db.commit()
     db.refresh(incident)
     return incident
 
+
 @app.get("/incidents/", response_model=List[IncidentRead])
 def get_incidents(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
     return db.query(Incident).offset(skip).limit(limit).all()
+
+@app.put("/incidents/{incident_id}", response_model=IncidentRead)
+def update_incident(incident_id: int, inc_in: IncidentUpdate, db: Session = Depends(get_db)):
+    incident = db.query(Incident).get(incident_id)
+    if not incident:
+        raise HTTPException(status_code=404, detail="Incident not found")
+
+    data = inc_in.dict(exclude_unset=True)
+
+    # Update scalar fields
+    for field, value in data.items():
+        if field != "alert_ids":
+            setattr(incident, field, value)
+
+    # Validate & replace alerts
+    if "alert_ids" in data:
+        alert_ids = data["alert_ids"]
+
+        alerts = (
+            db.query(Alert)
+            .filter(Alert.id.in_(alert_ids))
+            .all()
+        )
+
+        found_ids = {alert.id for alert in alerts}
+        missing_ids = set(alert_ids) - found_ids
+
+        if missing_ids:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid alert IDs: {sorted(missing_ids)}"
+            )
+
+        incident.alerts = alerts
+
+    db.commit()
+    db.refresh(incident)
+    return incident
+
+
+@app.delete("/incidents/{incident_id}", status_code=204)
+def delete_incident(
+    incident_id: int,
+    db: Session = Depends(get_db)
+):
+    incident = db.query(Incident).get(incident_id)
+    if not incident:
+        raise HTTPException(status_code=404, detail="Incident not found")
+
+    db.delete(incident)
+    db.commit()
+    return
 
 
 # Auditlogs --------------------------------------------------------------------------------------------------------------------

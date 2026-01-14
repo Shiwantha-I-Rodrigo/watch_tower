@@ -167,6 +167,13 @@ class IncidentRead(IncidentBase):
     class Config:
         orm_mode = True
 
+class IncidentUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+    severity: Optional[str] = None
+    alert_ids: Optional[List[int]] = None
+
 
 class IncidentAlertBase(BaseModel):
     incident_id: int
