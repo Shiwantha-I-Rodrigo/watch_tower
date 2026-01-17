@@ -183,6 +183,7 @@ class IncidentAlertRead(IncidentAlertBase):
     class Config:
         orm_mode = True
 
+
 class AuditLogBase(BaseModel):
     action: str
     target_type: str
@@ -195,6 +196,15 @@ class AuditLogRead(AuditLogBase):
     id: int
     user: Optional["UserRead"] = None
     timestamp: datetime
+
+    class Config:
+        orm_mode = True
+
+class AuditLogUpdate(BaseModel):
+    user_id: Optional[int] = None
+    action: Optional[str] = None
+    target_type: Optional[str] = None
+    target_id: Optional[int] = None
 
     class Config:
         orm_mode = True

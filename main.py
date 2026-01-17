@@ -17,7 +17,7 @@ from models_py import (
     RuleConditionCreate, RuleConditionRead,
     AlertCreate, AlertRead, AlertUpdate,
     IncidentCreate, IncidentRead, IncidentUpdate,
-    AuditLogCreate, AuditLogRead,
+    AuditLogCreate, AuditLogRead, AuditLogUpdate,
     UserRoleBase, UserRoleRead,
     IndicatorCreate, IndicatorRead,
     EventIndicatorBase, EventIndicatorRead,
@@ -506,7 +506,6 @@ def create_incident(inc_in: IncidentCreate, db: Session = Depends(get_db)):
     db.refresh(incident)
     return incident
 
-
 @app.get("/incidents/", response_model=List[IncidentRead])
 def get_incidents(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
     return db.query(Incident).offset(skip).limit(limit).all()
@@ -549,7 +548,6 @@ def update_incident(incident_id: int, inc_in: IncidentUpdate, db: Session = Depe
     db.refresh(incident)
     return incident
 
-
 @app.delete("/incidents/{incident_id}", status_code=204)
 def delete_incident(
     incident_id: int,
@@ -582,3 +580,37 @@ def create_auditlog(audit_in: AuditLogCreate, db: Session = Depends(get_db)):
 @app.get("/auditlogs/", response_model=List[AuditLogRead])
 def get_auditlogs(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
     return db.query(AuditLog).offset(skip).limit(limit).all()
+
+@app.patch("/auditlogs/{auditlog_id}", response_model=AuditLogRead)
+def patch_auditlog(
+    auditlog_id: int,
+    audit_in: AuditLogUpdate,
+    db: Session = Depends(get_db)
+):
+    audit = db.query(AuditLog).get(auditlog_id)
+    if not audit:
+        raise HTTPException(status_code=404, detail="Audit log not found")
+
+    # Validate user_id if provided
+    if audit_in.user_id is not None:
+        user = db.query(User).get(audit_in.user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+    # Update only provided fields
+    for field, value in audit_in.dict(exclude_unset=True).items():
+        setattr(audit, field, value)
+
+    db.commit()
+    db.refresh(audit)
+    return audit
+
+@app.delete("/auditlogs/{auditlog_id}", status_code=204)
+def delete_auditlog(auditlog_id: int, db: Session = Depends(get_db)):
+    audit = db.query(AuditLog).get(auditlog_id)
+    if not audit:
+        raise HTTPException(status_code=404, detail="Audit log not found")
+
+    db.delete(audit)
+    db.commit()
+    return
