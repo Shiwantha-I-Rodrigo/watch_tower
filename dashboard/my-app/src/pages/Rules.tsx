@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { ToastContainer, toast } from "react-toastify";
+
+const PAGE_LIMIT = 10;
 
 function RuleManagement() {
     const [page, setPage] = useState(0);
@@ -39,16 +41,39 @@ function RuleManagement() {
         conditions: RuleConditionForm[];
     };
 
-    // Fetch rules on load
-    useEffect(() => {
-        fetch("http://127.0.0.1:8000/rules/?skip=0&limit=50")
-            .then(res => res.json())
-            .then(data => setRules(data))
-            .catch(err => console.error("Error fetching rules:", err));
+    // fetch rules
+    const fetchRules = useCallback(async (skip: number) => {
+        try {
+            const res = await fetch(`http://127.0.0.1:8000/rules/?skip=${skip}&limit=${PAGE_LIMIT}`);
+            if (!res.ok) throw new Error("Failed to fetch rules");
+            const data: Rule[] = await res.json();
+            setRules(data);
+            setHasMore(data.length === PAGE_LIMIT);
+            setPage(skip);
+        } catch (err: any) {
+            toast.error(`Error fetching rules: ${err.message}`);
+        }
     }, []);
 
-    // Handle Modify button click
-    const handleModifyClick = (rule: Rule) => {
+    useEffect(() => {
+        fetchRules(0);
+    }, [fetchRules]);
+
+    // handle next page
+    const handleNext = () => {
+        if (!hasMore) return;
+        fetchRules(page + PAGE_LIMIT);
+    };
+
+    // handle prev page
+    const handlePrev = () => {
+        if (page <= 0) return;
+        fetchRules(Math.max(page - PAGE_LIMIT, 0));
+    };
+
+    // handle modify form
+    const handleModify = (e: React.MouseEvent<HTMLButtonElement>, rule: Rule) => {
+        e.preventDefault()
         setSelectedRule({
             id: rule.id,
             name: rule.name,
@@ -64,46 +89,28 @@ function RuleManagement() {
         });
     };
 
-    // Handle form input change (rule fields)
+    // handle input change (rule fields)
     const handleRuleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        e.preventDefault()
         const { name } = e.target;
-
         setSelectedRule(prev => {
             if (!prev) return prev;
-
-            // Checkbox handling (safe narrowing)
             if (e.target instanceof HTMLInputElement && e.target.type === "checkbox") {
-                return {
-                    ...prev,
-                    [name]: e.target.checked,
-                };
+                return {...prev,[name]: e.target.checked,};
             }
-
-            return {
-                ...prev,
-                [name]: e.target.value,
-            };
+            return {...prev,[name]: e.target.value,};
         });
     };
 
-
-    // Handle condition field change
+    // handle input change (condition fields)
     const handleConditionChange = (index: number,e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        e.preventDefault()
         const { name, value } = e.target;
-
         setSelectedRule(prev => {
             if (!prev) return prev;
-
             const updatedConditions = [...prev.conditions];
-            updatedConditions[index] = {
-                ...updatedConditions[index],
-                [name]: value,
-            };
-
-            return {
-                ...prev,
-                conditions: updatedConditions,
-            };
+            updatedConditions[index] = {...updatedConditions[index],[name]: value,};
+            return {...prev,conditions: updatedConditions,};
         });
     };
 
@@ -111,10 +118,8 @@ function RuleManagement() {
     const addCondition = () => {
         setSelectedRule(prev => {
             if (!prev) return prev;
-            return {
-                ...prev,
-                conditions: [
-                    ...prev.conditions,
+            return {...prev,
+                conditions: [...prev.conditions,
                     { field: "", operator: "", value: "" },
                 ],
             };
@@ -125,172 +130,94 @@ function RuleManagement() {
     const removeCondition = (index: number) => {
         setSelectedRule(prev => {
             if (!prev) return prev;
-            return {
-                ...prev,
+            return {...prev,
                 conditions: prev.conditions.filter((_, i) => i !== index),
             };
         });
     };
 
-    // Create rule
-    const handleCreateRule = (e: React.FormEvent<HTMLFormElement>) => {
+    // create rule
+    async function handleCreate(e: React.FormEvent) {
         e.preventDefault();
-
         if (!selectedRule) return;
-
-        if (!confirm("Are you sure you want to create this rule?")) return;
-
-        const payload = {
-            name: selectedRule.name,
-            description: selectedRule.description,
-            severity: selectedRule.severity,
-            enabled: selectedRule.enabled,
-            conditions: selectedRule.conditions.map(c => ({
-                field: c.field,
-                operator: c.operator,
-                value: c.value,
-            })),
-        };
-
-        fetch("http://127.0.0.1:8000/rules/", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload),
-        })
-            .then(res => {
-                if (!res.ok) {
-                    throw new Error("Failed to create rule");
-                }
-                return res.json();
-            })
-            .then((newRule: Rule) => {
-                setRules(prev => [...prev, newRule]);
-                toast.success("Rule created!");
-                setSelectedRule(null);
-            })
-            .catch(err => {
-                console.error("Error creating rule:", err);
-                toast.error("Create failed");
-            });
-    };
-
-    // Submit updated rule
-    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        if (!selectedRule || !selectedRule.id) return;
-
-        if (!confirm("Are you sure you want to update this rule?")) return;
-
-        const payload = {
-            name: selectedRule.name,
-            description: selectedRule.description,
-            severity: selectedRule.severity,
-            enabled: selectedRule.enabled,
-            conditions: selectedRule.conditions.map(c => ({
-                field: c.field,
-                operator: c.operator,
-                value: c.value,
-            })),
-        };
-
-        fetch(`http://127.0.0.1:8000/rules/${selectedRule.id}`, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload),
-        })
-            .then(res => {
-                if (!res.ok) {
-                    throw new Error("Failed to update rule");
-                }
-                return res.json();
-            })
-            .then((updatedRule: Rule) => {
-                setRules(prevRules =>
-                    prevRules.map(r =>
-                        r.id === updatedRule.id ? updatedRule : r
-                    )
-                );
-                toast.success("Rule updated!");
-            })
-            .catch(err => {
-                console.error("Error updating rule:", err);
-                toast.error("Update failed");
-            });
-    };
-
-    // Delete rule
-    const handleDeleteRule = (ruleId: number) => {
-        if (!confirm("Are you sure you want to delete this rule?")) return;
-
-        fetch(`http://127.0.0.1:8000/rules/${ruleId}`, {
-            method: "DELETE",
-        })
-            .then(res => {
-                if (!res.ok) {
-                    throw new Error("Failed to delete rule");
-                }
-
-                // Remove rule from local state
-                setRules(prevRules =>
-                    prevRules.filter(rule => rule.id !== ruleId)
-                );
-
-                toast.success("Rule deleted!");
-            })
-            .catch(err => {
-                console.error("Error deleting rule:", err);
-                toast.error("Delete failed");
-            });
-    };
-
-
-    // Handle next page
-    const handleNext = async () => {
+        if (!window.confirm("Are you sure you want to create this rule?")) return;
         try {
-            const nextPage = page + 10;
-
-            const res = await fetch(
-            `http://127.0.0.1:8000/rules/?skip=${nextPage}&limit=10`
-            );
-            const data = await res.json();
-
-            if (!data || data.length === 0) {
-            console.log("No more rules");
-            setHasMore(false);
-            return;
+            const response = await fetch("http://127.0.0.1:8000/rules/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(selectedRule),
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Unexpected HTTP status; request may be unsuccessful");
             }
-
-            setRules(data);
-            setPage(nextPage);
-        } catch (err) {
-            console.error("Error fetching rules:", err);
+            const created = await response.json();
+            handleLog(`create`, `rule`, created.id, 1)
+            toast.success(`Rule created successfully! ID: ${created.id}`);
+            setSelectedRule(null);
+        } catch (err: any) {
+            toast.error(`Error creating rule: ${err.message}`);
         }
-    };
+    }
 
-    // Handle prev page
-    const handlePrev = async () => {
-        if (page <= 0) return;
-
-        const prevPage = Math.max(page - 10, 0);
-
+    // update rule
+    async function handleUpdate(e: React.FormEvent) {
+        e.preventDefault();
+        if (!selectedRule?.id) return;
+        if (!window.confirm("Are you sure you want to update this rule?")) return;
         try {
-            const res = await fetch(
-            `http://127.0.0.1:8000/rules/?skip=${prevPage}&limit=10`
-            );
-            const data = await res.json();
-
-            if (!data || data.length === 0) return;
-
-            setRules(data);
-            setHasMore(true);
-            setPage(prevPage);
-        } catch (err) {
-            console.error("Error fetching rules:", err);
+            const response = await fetch(`http://127.0.0.1:8000/rules/${selectedRule.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(selectedRule),
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Unexpected HTTP status; request may be unsuccessful");
+            }
+            const updated = await response.json();
+            handleLog(`update`, `rule`, updated.id, 1)
+            toast.success(`Rule updated successfully! ID: ${selectedRule.id}`);
+            setRules(prev => prev.map(rule => (rule.id === updated.id ? updated : rule)));
+            setSelectedRule(null);
+        } catch (err: any) {
+            toast.error(`Error updating rule: ${err.message}`);
         }
+    }
+
+    // delete rule
+    async function handleDelete(ruleId: number) {
+        if (ruleId <= 0) return
+        if (!window.confirm("Are you sure you want to delete this rule?")) return;
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/rules/${ruleId}`, {
+                method: "DELETE",
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Unexpected HTTP status; request may be unsuccessful");
+            }
+            handleLog(`update`, `rule`, ruleId, 1)
+            toast.success(`Rule deleted successfully! ID: ${ruleId}`);
+            setRules(prev => prev.filter(rule => rule.id !== ruleId));
+        } catch (err: any) {
+            toast.error(`Error deleting rule: ${err.message}`);
+        }
+    }
+
+    // create audit log
+    const handleLog = (action: string, target_type: string, target_id: number, user_id: number) => {
+        const payload = {
+            action: action,
+            target_type: target_type,
+            target_id: target_id,
+            user_id: user_id
+        };
+        fetch("http://127.0.0.1:8000/auditlogs/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        })
     };
 
     return (
@@ -348,14 +275,14 @@ function RuleManagement() {
                                         </td>
                                         <td>
                                             <button
-                                                onClick={() => handleModifyClick(rule)}
+                                                onClick={(e) => handleModify(e,rule)}
                                                 title="Edit"
                                             >
                                                 <i className="bi bi-pencil-square"></i>
                                             </button>
                                             <button
                                                 className="mx-2 bg-danger"
-                                                onClick={() => handleDeleteRule(rule.id)}
+                                                onClick={() => handleDelete(rule.id)}
                                                 title="Delete"
                                             >
                                                 <i className="bi bi-trash"></i>
@@ -398,7 +325,7 @@ function RuleManagement() {
 
                     <div className="card-body">
                         <form
-                            onSubmit={selectedRule?.id ? handleSubmit : handleCreateRule}
+                            onSubmit={selectedRule?.id ? handleUpdate : handleCreate}
                         >
 
                             {/* Rule Name */}

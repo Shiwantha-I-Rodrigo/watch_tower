@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { ToastContainer, toast } from "react-toastify";
+
+const PAGE_LIMIT = 10;
 
 function EventManagement() {
     const [page, setPage] = useState(0);
-    const [events, setEvents] = useState<Event[]>([]);
     const [hasMore, setHasMore] = useState(true);
+    const [events, setEvents] = useState<Event[]>([]);
     const [selectedEvent, setSelectedEvent] = useState<EventForm | null>(null);
 
     type Asset = {
@@ -33,16 +35,39 @@ function EventManagement() {
         asset_id: number | null;
     };
 
-    // Fetch events on load
-    useEffect(() => {
-        fetch("http://127.0.0.1:8000/events/?skip=0&limit=10")
-            .then(res => res.json())
-            .then(data => setEvents(data))
-            .catch(err => console.error("Error fetching events:", err));
+    // fetch events
+    const fetchEvents = useCallback(async (skip: number) => {
+        try {
+            const res = await fetch(`http://127.0.0.1:8000/events/?skip=${skip}&limit=${PAGE_LIMIT}`);
+            if (!res.ok) throw new Error("Failed to fetch events");
+            const data: Event[] = await res.json();
+            setEvents(data);
+            setHasMore(data.length === PAGE_LIMIT);
+            setPage(skip);
+        } catch (err: any) {
+            toast.error(`Error fetching events: ${err.message}`);
+        }
     }, []);
 
-    // Handle Modify button click
-    const handleModifyClick = (event: Event) => {
+    useEffect(() => {
+        fetchEvents(0);
+    }, [fetchEvents]);
+
+    // handle next page
+    const handleNext = () => {
+        if (!hasMore) return;
+        fetchEvents(page + PAGE_LIMIT);
+    };
+
+    // handle prev page
+    const handlePrev = () => {
+        if (page <= 0) return;
+        fetchEvents(Math.max(page - PAGE_LIMIT, 0));
+    };
+
+    // handle modify form
+    const handleModify = (e: React.MouseEvent<HTMLButtonElement>, event: Event) => {
+        e.preventDefault()
         setSelectedEvent({
             id: event.id,
             event_type: event.event_type,
@@ -52,176 +77,96 @@ function EventManagement() {
         });
     };
 
-    // Handle form input change
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
+    // handle input change
+    const handleChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
+        e.preventDefault()
+        const { name, value, dataset } = e.target
+        const parsed = dataset.type === "number" ? value === "" ? null : Number(value) : value
+        setSelectedEvent(prev => ({ ...prev!, [name]: parsed, }))
+    }
 
-        setSelectedEvent(prev => {
-            if (!prev) return prev;
-
-            // Handle numeric nullable fields
-            if (name === "asset_id") {
-                return {
-                    ...prev,
-                    asset_id: value === "" ? null : Number(value),
-                };
+    // create event
+    async function handleCreate(e: React.FormEvent) {
+        e.preventDefault();
+        if (!window.confirm("Are you sure you want to create this event?")) return;
+        if (!selectedEvent) return;
+        try {
+            const response = await fetch("http://127.0.0.1:8000/events/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(selectedEvent),
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Unexpected HTTP status; request may be unsuccessful");
             }
-
-            return {
-                ...prev,
-                [name]: value,
-            };
-        });
-    };
-
-    // Create event
-    const handleCreateEvent = (e: React.FormEvent<HTMLFormElement>) => {
+            const created = await response.json();
+            handleLog(`create`, `event`, created.id, 1)
+            toast.success(`Event created successfully! ID: ${created.id}`);
+            setSelectedEvent(null);
+        } catch (err: any) {
+            toast.error(`Error creating event: ${err.message}`);
+        }
+    }
+    
+    // update event
+    async function handleUpdate(e: React.FormEvent) {
         e.preventDefault();
-
-        if (!selectedEvent) return;
-
-        if (!confirm("Are you sure you want to create this event?")) return;
-
-       const payload = {
-            event_type: selectedEvent!.event_type,
-            severity: selectedEvent!.severity,
-            message: selectedEvent!.message,
-            asset_id: selectedEvent!.asset_id
-        };
-
-        fetch("http://127.0.0.1:8000/events/", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload),
-        })
-            .then(res => {
-                if (!res.ok) {
-                    throw new Error("Failed to create event");
-                }
-                return res.json();
-            })
-            .then((newEvent: Event) => {
-                setEvents(prev => [...prev, newEvent]);
-                toast.success("User created!");
-                setSelectedEvent(null);
-            })
-            .catch(err => {
-                console.error("Error creating event:", err);
-                toast.error("Create failed");
+        if (!selectedEvent?.id) return;
+        if (!window.confirm("Are you sure you want to update this event?")) return;
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/events/${selectedEvent.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(selectedEvent),
             });
-    };
-
-    // Submit updated event
-    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        if (!selectedEvent) return;
-
-        if (!confirm("Are you sure you want to update this?")) return;
-
-        const payload = {
-            event_type: selectedEvent.event_type,
-            severity: selectedEvent.severity,
-            message: selectedEvent.message,
-            asset_id: selectedEvent.asset_id
-        };
-
-        fetch(`http://127.0.0.1:8000/events/${selectedEvent.id}`, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload),
-        })
-            .then(res => {
-                if (!res.ok) {
-                    throw new Error("Failed to update event");
-                }
-                return res.json();
-            })
-            .then((updatedEvent: Event) => {
-                setEvents(prevEvents =>
-                    prevEvents.map(u =>
-                        u.id === updatedEvent.id ? updatedEvent : u
-                    )
-                );
-                toast.success("Event updated!");
-            })
-            .catch(err => {
-                console.error("Error updating event:", err);
-                toast.error("Update failed");
-            });
-    };
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Unexpected HTTP status; request may be unsuccessful");
+            }
+            const updated = await response.json();
+            handleLog(`update`, `event`, updated.id, 1)
+            toast.success(`Event updated successfully! ID: ${selectedEvent.id}`);
+            setEvents(prev => prev.map(event => (event.id === updated.id ? updated : event)));
+            setSelectedEvent(null);
+        } catch (err: any) {
+            toast.error(`Error updating event: ${err.message}`);
+        }
+    }
 
     // delete event
-    const handleDeleteEvent = (eventId: number) => {
-        if (!confirm("Are you sure you want to delete this event?")) return;
-
-        fetch(`http://127.0.0.1:8000/events/${eventId}`, {
-            method: "DELETE",
-        })
-            .then(res => {
-                if (!res.ok) {
-                    throw new Error("Failed to delete event");
-                }
-
-                // Remove event from local state
-                setEvents(prevEvents =>
-                    prevEvents.filter(event => event.id !== eventId)
-                );
-
-                toast.success("Event deleted!");
-            })
-            .catch(err => {
-                console.error("Error deleting event:", err);
-                toast.error("Delete failed");
+    async function handleDelete(eventId: number) {
+        if (eventId <= 0) return
+        if (!window.confirm("Are you sure you want to delete this event?")) return;
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/events/${eventId}`, {
+                method: "DELETE",
             });
-    };
-
-    // Handle next page
-    const handleNext = async () => {
-        try {
-            const nextPage = page + 10;
-
-            const res = await fetch(
-            `http://127.0.0.1:8000/events/?skip=${nextPage}&limit=10`
-            );
-            const data = await res.json();
-
-            if (!data || data.length === 0) {
-            console.log("No more events");
-            setHasMore(false);
-            return;
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Unexpected HTTP status; request may be unsuccessful");
             }
-
-            setEvents(data);
-            setPage(nextPage);
-        } catch (err) {
-            console.error("Error fetching events:", err);
+            handleLog(`update`, `event`, eventId, 1)
+            toast.success(`Event deleted successfully! ID: ${eventId}`);
+            setEvents(prev => prev.filter(event => event.id !== eventId));
+        } catch (err: any) {
+            toast.error(`Error deleting event: ${err.message}`);
         }
-    };
+    }
 
-    // Handle prev page
-    const handlePrev = async () => {
-        if (page <= 0) return;
-
-        const prevPage = Math.max(page - 10, 0);
-
-        try {
-            const res = await fetch(
-            `http://127.0.0.1:8000/events/?skip=${prevPage}&limit=10`
-            );
-            const data = await res.json();
-
-            if (!data || data.length === 0) return;
-
-            setEvents(data);
-            setHasMore(true);
-            setPage(prevPage);
-        } catch (err) {
-            console.error("Error fetching events:", err);
-        }
+    // create audit log
+    const handleLog = (action: string, target_type: string, target_id: number, user_id: number) => {
+        const payload = {
+            action: action,
+            target_type: target_type,
+            target_id: target_id,
+            user_id: user_id
+        };
+        fetch("http://127.0.0.1:8000/auditlogs/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        })
     };
 
     return (
@@ -256,10 +201,10 @@ function EventManagement() {
                                         <td>{event.message}</td>
                                         <td>{event.asset.id}</td>
                                         <td>
-                                            <button onClick={() => handleModifyClick(event)}>
+                                            <button onClick={(e) => handleModify(e,event)}>
                                                 <i className="bi bi-pencil-square"></i>
                                             </button>
-                                            <button className="mx-2 bg-danger" onClick={() => handleDeleteEvent(event.id)}>
+                                            <button className="mx-2 bg-danger" onClick={() => handleDelete(event.id)}>
                                                 <i className="bi bi-trash"></i>
                                             </button>
                                         </td>
@@ -291,7 +236,7 @@ function EventManagement() {
                     <h5 className="card-title card_title">{selectedEvent.id ? "Modify User" : "Add New User"}</h5>
                     <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
-                        <form onSubmit={selectedEvent.id ? handleSubmit : handleCreateEvent}>
+                        <form onSubmit={selectedEvent.id ? handleUpdate : handleCreate}>
 
                             <div className="row">
                                 <div className="col-4">

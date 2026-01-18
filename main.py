@@ -92,7 +92,7 @@ def get_users(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
     users = db.query(User).offset(skip).limit(limit).all()
     return users
 
-@app.put("/users/{user_id}", response_model=UserRead)
+@app.patch("/users/{user_id}", response_model=UserRead)
 def update_user(user_id: int, user_in: UserUpdate, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -147,7 +147,7 @@ def get_roles(db: Session = Depends(get_db)):
     roles = db.query(Role).all()
     return roles
 
-@app.put("/roles/{role_id}", response_model=RoleRead)
+@app.patch("/roles/{role_id}", response_model=RoleRead)
 def update_role(
     role_id: int = Path(..., gt=0),
     role_in: RoleBase = ...,
@@ -215,7 +215,7 @@ def get_assets(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
     assets = db.query(Asset).offset(skip).limit(limit).all()
     return assets
 
-@app.put("/assets/{asset_id}", response_model=AssetRead)
+@app.patch("/assets/{asset_id}", response_model=AssetRead)
 def update_asset(
     asset_id: int,
     asset_in: AssetCreate,
@@ -261,7 +261,7 @@ def get_events(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
     events = db.query(Event).offset(skip).limit(limit).all()
     return events
 
-@app.put("/events/{event_id}", response_model=EventRead)
+@app.patch("/events/{event_id}", response_model=EventRead)
 def update_event(
     event_id: int,
     event_in: EventUpdate,
@@ -313,7 +313,7 @@ def create_rawlog(rawlog_in: RawLogCreate, db: Session = Depends(get_db)):
 def get_rawlogs(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
     return db.query(RawLog).offset(skip).limit(limit).all()
 
-@app.put("/rawlogs/{rawlog_id}", response_model=RawLogRead)
+@app.patch("/rawlogs/{rawlog_id}", response_model=RawLogRead)
 def update_rawlog(
     rawlog_id: int,
     rawlog_in: RawLogUpdate,
@@ -378,7 +378,7 @@ def create_rule(rule_in: RuleCreate, db: Session = Depends(get_db)):
 def get_rules(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
     return db.query(Rule).offset(skip).limit(limit).all()
 
-@app.put("/rules/{rule_id}", response_model=RuleRead)
+@app.patch("/rules/{rule_id}", response_model=RuleRead)
 def update_rule(
     rule_id: int,
     rule_in: RuleCreate,
@@ -510,7 +510,7 @@ def create_incident(inc_in: IncidentCreate, db: Session = Depends(get_db)):
 def get_incidents(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
     return db.query(Incident).offset(skip).limit(limit).all()
 
-@app.put("/incidents/{incident_id}", response_model=IncidentRead)
+@app.patch("/incidents/{incident_id}", response_model=IncidentRead)
 def update_incident(incident_id: int, inc_in: IncidentUpdate, db: Session = Depends(get_db)):
     incident = db.query(Incident).get(incident_id)
     if not incident:

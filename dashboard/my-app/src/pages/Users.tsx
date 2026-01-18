@@ -1,12 +1,15 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { ToastContainer, toast } from "react-toastify";
 
+const PAGE_LIMIT = 10;
+
 function UserManagement() {
+    const [page, setPage] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
+    const [roles, setRoles] = useState<Role[]>([]);
     const [users, setUsers] = useState<User[]>([]);
     const [selectedUser, setSelectedUser] = useState<UserForm | null>(null);
-    const [page, setPage] = useState(0);
-    const [roles, setRoles] = useState<Role[]>([]);
-    const [hasMore, setHasMore] = useState(true);
+    
 
     type User = {
         username: string,
@@ -24,189 +27,152 @@ function UserManagement() {
 
     type UserForm = Partial<User> & { password?: string };
 
-    // Fetch users on load
-    useEffect(() => {
-        fetch("http://127.0.0.1:8000/users/?skip=0&limit=10")
-            .then(res => res.json())
-            .then(data => setUsers(data))
-            .catch(err => console.error("Error fetching users:", err));
-        fetch("http://127.0.0.1:8000/roles")
-            .then(res => res.json())
-            .then(data => setRoles(data))
-            .catch(err => console.error("Error fetching roles:", err));
+    // fetch users
+    const fetchUsers = useCallback(async (skip: number) => {
+        try {const res1 = await fetch(`http://127.0.0.1:8000/roles/?skip=${skip}&limit=${PAGE_LIMIT}`);
+            if (!res1.ok) throw new Error("Failed to fetch roles");
+            const data1: Role[] = await res1.json();
+            setRoles(data1);
+            const res2 = await fetch(`http://127.0.0.1:8000/users/?skip=${skip}&limit=${PAGE_LIMIT}`);
+            if (!res2.ok) throw new Error("Failed to fetch users");
+            const data2: User[] = await res2.json();
+            setUsers(data2);
+            setHasMore(data2.length === PAGE_LIMIT);
+            setPage(skip);
+        } catch (err: any) {
+            toast.error(`Error fetching users: ${err.message}`);
+        }
     }, []);
 
-    // Handle Modify button click
-    const handleModifyClick = (user: User) => {
-        setSelectedUser({ ...user }); // clone user into form state
+    useEffect(() => {
+        fetchUsers(0);
+    }, [fetchUsers]);
+
+    // handle next page
+    const handleNext = () => {
+        if (!hasMore) return;
+        fetchUsers(page + PAGE_LIMIT);
     };
 
-    // Handle form input change
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value, type, checked } = e.target;
+    // handle prev page
+    const handlePrev = () => {
+        if (page <= 0) return;
+        fetchUsers(Math.max(page - PAGE_LIMIT, 0));
+    };
 
+   // handle modify form
+    const handleModify = (e: React.MouseEvent<HTMLButtonElement>, user: User) => {
+        e.preventDefault()
+        setSelectedUser({ ...user });
+    };
+
+    // handle input change
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        e.preventDefault()
+        const { name, value, type, checked } = e.target;
         setSelectedUser(prev => {
             if (!prev) return prev;
-
-            return {
-                ...prev,
-                [name]: type === "checkbox" ? checked : value
-            };
+            return {...prev,[name]: type === "checkbox" ? checked : value};
         });
     };
 
-    // Create user
-    const handleCreateUser = (e: React.FormEvent<HTMLFormElement>) => {
+    // create user
+    async function handleCreate(e: React.FormEvent) {
         e.preventDefault();
-
+        if (!window.confirm("Are you sure you want to create this user?")) return;
         if (!selectedUser) return;
-
-        if (!confirm("Are you sure you want to create this user?")) return;
-
-       const payload = {
-            username: selectedUser!.username,
-            email: selectedUser!.email,
-            is_active: selectedUser!.is_active,
-            password: selectedUser!.password,
-            role_ids: selectedUser.roles?.map(r => r.id) || [],
-        };
-
-        fetch("http://127.0.0.1:8000/users/", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload),
-        })
-            .then(res => {
-                if (!res.ok) {
-                    throw new Error("Failed to create user");
-                }
-                return res.json();
-            })
-            .then((newUser: User) => {
-                setUsers(prev => [...prev, newUser]);
-                toast.success("User created!");
-                setSelectedUser(null);
-            })
-            .catch(err => {
-                console.error("Error creating user:", err);
-                toast.error("Create failed");
+        try {
+            const payload = {
+                username: selectedUser!.username,
+                email: selectedUser!.email,
+                is_active: selectedUser!.is_active,
+                password: selectedUser!.password,
+                role_ids: selectedUser.roles?.map(r => r.id) || [],
+            };
+            const response = await fetch("http://127.0.0.1:8000/users/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
             });
-    };
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Unexpected HTTP status; request may be unsuccessful");
+            }
+            const created = await response.json();
+            handleLog(`create`, `user`, created.id, 1)
+            toast.success(`User created successfully! ID: ${created.id}`);
+            setSelectedUser(null);
+        } catch (err: any) {
+            toast.error(`Error creating user: ${err.message}`);
+        }
+    }
 
-    // Submit updated user
-    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    // update user
+    async function handleUpdate(e: React.FormEvent) {
         e.preventDefault();
-        if (!selectedUser) return;
-
-        if (!confirm("Are you sure you want to update this?")) return;
-
-        const payload = {
-            username: selectedUser.username,
-            email: selectedUser.email,
-            is_active: selectedUser.is_active,
-            // password: newPassword, // only if changing password
-            role_ids: selectedUser.roles?.map(r => r.id) || [],
-        };
-
-        fetch(`http://127.0.0.1:8000/users/${selectedUser.id}`, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload),
-        })
-            .then(res => {
-                if (!res.ok) {
-                    throw new Error("Failed to update user");
-                }
-                return res.json();
-            })
-            .then((updatedUser: User) => {
-                setUsers(prevUsers =>
-                    prevUsers.map(u =>
-                        u.id === updatedUser.id ? updatedUser : u
-                    )
-                );
-                toast.success("User updated!");
-            })
-            .catch(err => {
-                console.error("Error updating user:", err);
-                toast.error("Update failed");
+        if (!selectedUser?.id) return;
+        if (!window.confirm("Are you sure you want to update this user?")) return;
+        try {
+            const payload = {
+                username: selectedUser.username,
+                email: selectedUser.email,
+                is_active: selectedUser.is_active,
+                // password: newPassword, // only if changing password
+                role_ids: selectedUser.roles?.map(r => r.id) || [],
+            };
+            const response = await fetch(`http://127.0.0.1:8000/users/${selectedUser.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
             });
-    };
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Unexpected HTTP status; request may be unsuccessful");
+            }
+            const updated = await response.json();
+            handleLog(`update`, `user`, updated.id, 1)
+            toast.success(`User updated successfully! ID: ${selectedUser.id}`);
+            setUsers(prev => prev.map(user => (user.id === updated.id ? updated : user)));
+            setSelectedUser(null);
+        } catch (err: any) {
+            toast.error(`Error updating user: ${err.message}`);
+        }
+    }
 
     // delete user
-    const handleDeleteUser = (userId: number) => {
-        if (!confirm("Are you sure you want to delete this user?")) return;
-
-        fetch(`http://127.0.0.1:8000/users/${userId}`, {
-            method: "DELETE",
-        })
-            .then(res => {
-                if (!res.ok) {
-                    throw new Error("Failed to delete user");
-                }
-
-                // Remove user from local state
-                setUsers(prevUsers =>
-                    prevUsers.filter(user => user.id !== userId)
-                );
-
-                toast.success("User deleted!");
-            })
-            .catch(err => {
-                console.error("Error deleting user:", err);
-                toast.error("Delete failed");
+    async function handleDelete(userId: number) {
+        if (userId <= 0) return
+        if (!window.confirm("Are you sure you want to delete this user?")) return;
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/users/${userId}`, {
+                method: "DELETE",
             });
-    };
-
-    // Handle next page
-    const handleNext = async () => {
-        try {
-            const nextPage = page + 10;
-
-            const res = await fetch(
-            `http://127.0.0.1:8000/users/?skip=${nextPage}&limit=10`
-            );
-            const data = await res.json();
-
-            if (!data || data.length === 0) {
-            console.log("No more users");
-            setHasMore(false);
-            return;
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Unexpected HTTP status; request may be unsuccessful");
             }
-
-            setUsers(data);
-            setPage(nextPage);
-        } catch (err) {
-            console.error("Error fetching users:", err);
+            handleLog(`update`, `user`, userId, 1)
+            toast.success(`User deleted successfully! ID: ${userId}`);
+            setUsers(prev => prev.filter(user => user.id !== userId));
+        } catch (err: any) {
+            toast.error(`Error deleting user: ${err.message}`);
         }
+    }
+
+    // create audit log
+    const handleLog = (action: string, target_type: string, target_id: number, user_id: number) => {
+        const payload = {
+            action: action,
+            target_type: target_type,
+            target_id: target_id,
+            user_id: user_id
+        };
+        fetch("http://127.0.0.1:8000/auditlogs/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        })
     };
-
-    // Handle prev page
-    const handlePrev = async () => {
-        if (page <= 0) return;
-
-        const prevPage = Math.max(page - 10, 0);
-
-        try {
-            const res = await fetch(
-            `http://127.0.0.1:8000/users/?skip=${prevPage}&limit=10`
-            );
-            const data = await res.json();
-
-            if (!data || data.length === 0) return;
-
-            setUsers(data);
-            setHasMore(true);
-            setPage(prevPage);
-        } catch (err) {
-            console.error("Error fetching users:", err);
-        }
-    };
-
 
     return (
         <div className="row content g-4">
@@ -240,10 +206,10 @@ function UserManagement() {
                                         <td>{user.is_active ? "Active" : "Inactive"}</td>
                                         <td>{user.email}</td>
                                         <td>
-                                            <button onClick={() => handleModifyClick(user)}>
+                                            <button onClick={(e) => handleModify(e,user)}>
                                                 <i className="bi bi-pencil-square"></i>
                                             </button>
-                                            <button className="mx-2 bg-danger" onClick={() => handleDeleteUser(user.id)}>
+                                            <button className="mx-2 bg-danger" onClick={() => handleDelete(user.id)}>
                                                 <i className="bi bi-trash"></i>
                                             </button>
                                         </td>
@@ -275,7 +241,7 @@ function UserManagement() {
                     <h5 className="card-title card_title">{selectedUser.id ? "Modify User" : "Add New User"}</h5>
                     <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
-                        <form onSubmit={selectedUser.id ? handleSubmit : handleCreateUser}>
+                        <form onSubmit={selectedUser.id ? handleUpdate : handleCreate}>
 
                             <div className="row">
                                 <div className="col-4">

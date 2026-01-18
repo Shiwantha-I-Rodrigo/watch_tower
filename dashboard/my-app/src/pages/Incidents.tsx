@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { ToastContainer, toast } from "react-toastify";
+
+const PAGE_LIMIT = 10;
 
 function IncidentManagement() {
     const [page, setPage] = useState(0);
     const [hasMore, setHasMore] = useState(true);
     const [incidents, setIncidents] = useState<Incident[]>([]);
     const [selectedIncident, setSelectedIncident] = useState<IncidentForm | null>(null);
-
 
     type RuleCondition = {
         id: number;
@@ -52,7 +53,6 @@ function IncidentManagement() {
         event?: Event | null;
     };
 
-
     type Incident = {
         id: number;
         title: string;
@@ -72,39 +72,68 @@ function IncidentManagement() {
         alert_ids: number[];
     };
 
-
-    // fetch alerts
-    useEffect(() => {
-        fetch("http://127.0.0.1:8000/incidents/?skip=0&limit=10")
-            .then(res => { if (!res.ok) { throw new Error("Failed to fetch alerts"); } return res.json(); })
-            .then((data: Incident[]) => { setIncidents(data); setHasMore(data.length === 10); })
-            .catch(err => { console.error("Error fetching alerts:", err); toast.error("Error fetching alerts"); });
+    // fetch incidents
+    const fetchIncidents = useCallback(async (skip: number) => {
+        try {
+            const res = await fetch(`http://127.0.0.1:8000/incidents/?skip=${skip}&limit=${PAGE_LIMIT}`);
+            if (!res.ok) throw new Error("Failed to fetch incidents");
+            const data: Incident[] = await res.json();
+            setIncidents(data);
+            setHasMore(data.length === PAGE_LIMIT);
+            setPage(skip);
+        } catch (err: any) {
+            toast.error(`Error fetching incidents: ${err.message}`);
+        }
     }, []);
 
+    useEffect(() => {
+        fetchIncidents(0);
+    }, [fetchIncidents]);
 
-    // handle modify
-    function handleModifyIncident(incident: IncidentForm) {
-        setSelectedIncident(incident);
-    }
-
-
-    // handle new
-    function handleNewIncident() {
-        setSelectedIncident({ id: undefined, title: "", description : "", severity: "", status: "", alert_ids: [] });
-    }
-
-
-    // handle change for normal fields
-    const handleIncidentChange = (
-        e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-    ) => {
-        const { name, value } = e.target;
-        setSelectedIncident(prev =>
-        prev ? { ...prev, [name]: value } : prev
-        );
+    // handle next page
+    const handleNext = () => {
+        if (!hasMore) return;
+        fetchIncidents(page + PAGE_LIMIT);
     };
 
-    // handle change for individual alert id
+    // handle prev page
+    const handlePrev = () => {
+        if (page <= 0) return;
+        fetchIncidents(Math.max(page - PAGE_LIMIT, 0));
+    };
+
+    // handle modify form
+    const handleModify = (e: React.MouseEvent<HTMLButtonElement>, incident: Incident) => {
+        e.preventDefault()
+        setSelectedIncident({
+            id: incident.id,
+            title: incident.title,
+            description: incident.description,
+            status: incident.status,
+            severity: incident.severity,
+            alert_ids: incident.alerts.map(alert => alert.id),
+        });
+    }
+
+    // handle new form
+    function handleNewIncident() {
+        setSelectedIncident({
+            id: undefined,
+            title: "",
+            description : "",
+            severity: "",
+            status: "",
+            alert_ids: [] });
+    }
+
+    // handle input change (normal fields)
+    const handleIncidentChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+        e.preventDefault()
+        const { name, value } = e.target;
+        setSelectedIncident(prev => prev ? { ...prev, [name]: value } : prev);
+    };
+
+    // handle input change (alert ids)
     const handleAlertIdChange = (index: number, value: string) => {
         const parsed = Number(value);
         setSelectedIncident(prev => {
@@ -115,12 +144,12 @@ function IncidentManagement() {
         });
     };
 
-    // add new alert
+    // add a new alert
     const addAlert = () => {
         setSelectedIncident(prev => prev ? { ...prev, alert_ids: [...prev.alert_ids, 0] } : prev);
     };
 
-    // remove alert
+    // remove an alert
     const removeAlert = (index: number) => {
         setSelectedIncident(prev => {
         if (!prev) return prev;
@@ -129,167 +158,88 @@ function IncidentManagement() {
         });
     };
 
-    function incidentToForm(incident: Incident): IncidentForm {
-    return {
-        id: incident.id,
-        title: incident.title,
-        description: incident.description,
-        status: incident.status,
-        severity: incident.severity,
-        alert_ids: incident.alerts.map(alert => alert.id),
-    };
-    }
-
-
     // create incident
-    const createIncident = (e: React.FormEvent<HTMLFormElement>) => {
+    async function handleCreate(e: React.FormEvent) {
         e.preventDefault();
-
+        if (!window.confirm("Are you sure you want to create this incident?")) return;
         if (!selectedIncident) return;
-
-        if (!confirm("Are you sure you want to create this incident?")) return;
-
-        const payload: IncidentForm = {
-            title: selectedIncident.title,
-            description: selectedIncident.description,
-            severity: selectedIncident.severity,
-            status: selectedIncident.status,
-            alert_ids: selectedIncident.alert_ids,
-        };
-
-        fetch("http://127.0.0.1:8000/incidents/", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload),
-        })
-            .then(res => {
-                if (!res.ok) {
-                    throw new Error("Failed to create incident");
-                }
-                return res.json();
-            })
-            .then((newIncident: Incident) => {
-                setIncidents(prev => [...prev, newIncident]);
-                toast.success("Incident created!");
-                setSelectedIncident(null);
-            })
-            .catch(err => {
-                console.error("Error creating incident:", err);
-                toast.error("Create failed");
+        try {
+            const response = await fetch("http://127.0.0.1:8000/incidents/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(selectedIncident),
             });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Unexpected HTTP status; request may be unsuccessful");
+            }
+            const created = await response.json();
+            handleLog(`create`, `incident`, created.id, 1)
+            toast.success(`Incident created successfully! ID: ${created.id}`);
+            setSelectedIncident(null);
+        } catch (err: any) {
+            toast.error(`Error creating incident: ${err.message}`);
+        }
     };
-
 
     // update incident
-    const updateIncident = (e: React.FormEvent<HTMLFormElement>) => {
+    async function handleUpdate(e: React.FormEvent) {
         e.preventDefault();
-
-        if (!selectedIncident || !selectedIncident.id) return;
-
-        if (!confirm("Are you sure you want to update this incident?")) return;
-
-        const payload: IncidentForm = {
-            title: selectedIncident.title,
-            description: selectedIncident.description,
-            severity: selectedIncident.severity,
-            status: selectedIncident.status,
-            alert_ids: selectedIncident.alert_ids ?? [],
-        };
-
-        fetch(`http://127.0.0.1:8000/incidents/${selectedIncident.id}`, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload),
-        })
-            .then(res => {
-                if (!res.ok) {
-                    throw new Error("Failed to update incident");
-                }
-                return res.json();
-            })
-            .then((updatedIncident: Incident) => {
-                setIncidents(prev =>
-                    prev.map(i =>
-                        i.id === updatedIncident.id ? updatedIncident : i
-                    )
-                );
-                toast.success("Incident updated!");
-                setSelectedIncident(null);
-            })
-            .catch(err => {
-                console.error("Error updating incident:", err);
-                toast.error("Update failed");
-            });
-    };
-
-
-    // delete alert
-    const deleteIncident = async (id: number) => {
+        if (!selectedIncident?.id) return;
+        if (!window.confirm("Are you sure you want to update this incident?")) return;
         try {
-            const res = await fetch(`http://127.0.0.1:8000/incidents/${id}`, {
+            const response = await fetch(`http://127.0.0.1:8000/incidents/${selectedIncident.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(selectedIncident),
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Unexpected HTTP status; request may be unsuccessful");
+            }
+            const updated = await response.json();
+            handleLog(`update`, `incident`, updated.id, 1)
+            toast.success(`Incident updated successfully! ID: ${selectedIncident.id}`);
+            setIncidents(prev => prev.map(incident => (incident.id === updated.id ? updated : incident)));
+            setSelectedIncident(null);
+        } catch (err: any) {
+            toast.error(`Error updating incident: ${err.message}`);
+        }
+    }
+
+    // delete incident
+    async function handleDelete(incidentId: number) {
+        if (incidentId <= 0) return
+        if (!window.confirm("Are you sure you want to delete this incident?")) return;
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/incidents/${incidentId}`, {
                 method: "DELETE",
             });
-
-            if (!res.ok) {
-                throw new Error("Failed to delete incident");
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Unexpected HTTP status; request may be unsuccessful");
             }
-
-            setIncidents(prev => prev.filter(inc => inc.id !== id));
-            toast.success("Incident deleted");
-        } catch (err) {
-            console.error(err);
-            toast.error("Error deleting incident");
+            handleLog(`update`, `incident`, incidentId, 1)
+            toast.success(`Incident deleted successfully! ID: ${incidentId}`);
+            setIncidents(prev => prev.filter(incident => incident.id !== incidentId));
+        } catch (err: any) {
+            toast.error(`Error deleting incident: ${err.message}`);
         }
-    };
+    }
 
-
-    // handle next page
-    const handleNext = async () => {
-        try {
-            const nextPage = page + 10;
-
-            const res = await fetch(
-                `http://127.0.0.1:8000/incidents/?skip=${nextPage}&limit=10`
-            );
-            const data = await res.json();
-
-            if (!data || data.length === 0) {
-                console.log("No more events");
-                setHasMore(false);
-                return;
-            }
-
-            setIncidents(data);
-            setPage(nextPage);
-        } catch (err) {
-            console.error("Error fetching events:", err);
-        }
-    };
-
-    // handle prev page
-    const handlePrev = async () => {
-        if (page <= 0) return;
-
-        const prevPage = Math.max(page - 10, 0);
-
-        try {
-            const res = await fetch(
-                `http://127.0.0.1:8000/incidents/?skip=${prevPage}&limit=10`
-            );
-            const data = await res.json();
-
-            if (!data || data.length === 0) return;
-
-            setIncidents(data);
-            setHasMore(true);
-            setPage(prevPage);
-        } catch (err) {
-            console.error("Error fetching events:", err);
-        }
+    // create audit log
+    const handleLog = (action: string, target_type: string, target_id: number, user_id: number) => {
+        const payload = {
+            action: action,
+            target_type: target_type,
+            target_id: target_id,
+            user_id: user_id
+        };
+        fetch("http://127.0.0.1:8000/auditlogs/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        })
     };
 
     return (
@@ -355,12 +305,12 @@ function IncidentManagement() {
                                         </td>
 
                                         <td>
-                                            <button onClick={() => handleModifyIncident(incidentToForm(incident))}>
+                                            <button onClick={(e) => handleModify(e,incident)}>
                                                 <i className="bi bi-pencil-square"></i>
                                             </button>
                                             <button
                                                 className="mx-2 bg-danger"
-                                                onClick={() => deleteIncident(incident.id)}
+                                                onClick={() => handleDelete(incident.id)}
                                             >
                                                 <i className="bi bi-trash"></i>
                                             </button>
@@ -397,7 +347,7 @@ function IncidentManagement() {
                         <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid" />
 
                         <div className="card-body">
-                            <form onSubmit={selectedIncident.id ? updateIncident : createIncident} >
+                            <form onSubmit={selectedIncident.id ? handleUpdate : handleCreate} >
 
                                 {/* Title */}
                                 <div className="row mb-2">

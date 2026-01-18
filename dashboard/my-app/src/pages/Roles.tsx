@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { ToastContainer, toast } from "react-toastify";
+
+const PAGE_LIMIT = 10;
 
 function RoleManagement() {
     const [page, setPage] = useState(0);
-    const [roles, setRoles] = useState<Role[]>([]);
     const [hasMore, setHasMore] = useState(true);
+    const [roles, setRoles] = useState<Role[]>([]);
     const [selectedRole, setSelectedRole] = useState<RoleForm | null>(null);
 
     type Role = {
@@ -14,175 +16,132 @@ function RoleManagement() {
 
     type RoleForm = Partial<Role>
 
-    // Fetch roles on load
-    useEffect(() => {
-        fetch("http://127.0.0.1:8000/roles/?skip=0&limit=10")
-            .then(res => res.json())
-            .then(data => setRoles(data))
-            .catch(err => console.error("Error fetching roles:", err));
+    // fetch roles
+    const fetchRoles = useCallback(async (skip: number) => {
+        try {
+            const res = await fetch(`http://127.0.0.1:8000/roles/?skip=${skip}&limit=${PAGE_LIMIT}`);
+            if (!res.ok) throw new Error("Failed to fetch roles");
+            const data: Role[] = await res.json();
+            setRoles(data);
+            setHasMore(data.length === PAGE_LIMIT);
+            setPage(skip);
+        } catch (err: any) {
+            toast.error(`Error fetching roles: ${err.message}`);
+        }
     }, []);
 
-    // Handle Modify button click
-    const handleModifyClick = (role: Role) => {
+    useEffect(() => {
+        fetchRoles(0);
+    }, [fetchRoles]);
+
+    // handle next page
+    const handleNext = () => {
+        if (!hasMore) return;
+        fetchRoles(page + PAGE_LIMIT);
+    };
+
+    // handle prev page
+    const handlePrev = () => {
+        if (page <= 0) return;
+        fetchRoles(Math.max(page - PAGE_LIMIT, 0));
+    };
+
+    // handle modify form
+    const handleModify = (e: React.MouseEvent<HTMLButtonElement>, role: Role) => {
+        e.preventDefault()
         setSelectedRole({ ...role });
     };
 
-    // Handle form input change
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target;
+    // handle input change
+    const handleChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement | HTMLTextAreaElement>) => {
+        e.preventDefault()
+        const { name, value, dataset } = e.target
+        const parsed = dataset.type === "number" ? value === "" ? null : Number(value) : value
+        setSelectedRole(prev => ({ ...prev!, [name]: parsed, }))
+    }
 
-        setSelectedRole(prev => {
-            if (!prev) return prev;
-
-            return {
-                ...prev,
-                [name]: value
-            };
-        });
-    };
-
-    // Create user
-    const handleCreateRole = (e: React.FormEvent<HTMLFormElement>) => {
+    // create role
+    async function handleCreate(e: React.FormEvent) {
         e.preventDefault();
-
+        if (!window.confirm("Are you sure you want to create this role?")) return;
         if (!selectedRole) return;
-
-        if (!confirm("Are you sure you want to create this role?")) return;
-
-       const payload = {
-            name: selectedRole!.name,
-        };
-
-        fetch("http://127.0.0.1:8000/roles/", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload),
-        })
-            .then(res => {
-                if (!res.ok) {
-                    throw new Error("Failed to create role");
-                }
-                return res.json();
-            })
-            .then((newRole: Role) => {
-                setRoles(prev => [...prev, newRole]);
-                toast.success("User created!");
-                setSelectedRole(null);
-            })
-            .catch(err => {
-                console.error("Error creating user:", err);
-                toast.error("Create failed");
+        try {
+            const response = await fetch("http://127.0.0.1:8000/roles/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(selectedRole),
             });
-    };
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Unexpected HTTP status; request may be unsuccessful");
+            }
+            const created = await response.json();
+            handleLog(`create`, `role`, created.id, 1)
+            toast.success(`Role created successfully! ID: ${created.id}`);
+            setSelectedRole(null);
+        } catch (err: any) {
+            toast.error(`Error creating role: ${err.message}`);
+        }
+    }
 
-    // Submit updated role
-    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    // update role
+    async function handleUpdate(e: React.FormEvent) {
         e.preventDefault();
-        if (!selectedRole) return;
-
-        if (!confirm("Are you sure you want to update this?")) return;
-
-        const payload = {
-            name: selectedRole.name,
-        };
-
-        fetch(`http://127.0.0.1:8000/roles/${selectedRole.id}`, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload),
-        })
-            .then(res => {
-                if (!res.ok) {
-                    throw new Error("Failed to update role");
-                }
-                return res.json();
-            })
-            .then((updatedRole: Role) => {
-                setRoles(prevRoles =>
-                    prevRoles.map(u =>
-                        u.id === updatedRole.id ? updatedRole : u
-                    )
-                );
-                toast.success("Role updated!");
-            })
-            .catch(err => {
-                console.error("Error updating role:", err);
-                toast.error("Update failed");
+        if (!selectedRole?.id) return;
+        if (!window.confirm("Are you sure you want to update this role?")) return;
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/roles/${selectedRole.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(selectedRole),
             });
-    };
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Unexpected HTTP status; request may be unsuccessful");
+            }
+            const updated = await response.json();
+            handleLog(`update`, `role`, updated.id, 1)
+            toast.success(`Role updated successfully! ID: ${selectedRole.id}`);
+            setRoles(prev => prev.map(role => (role.id === updated.id ? updated : role)));
+            setSelectedRole(null);
+        } catch (err: any) {
+            toast.error(`Error updating role: ${err.message}`);
+        }
+    }
 
     // delete role
-    const handleDeleteRole = (roleId: number) => {
-        if (!confirm("Are you sure you want to delete this user?")) return;
-
-        fetch(`http://127.0.0.1:8000/roles/${roleId}`, {
-            method: "DELETE",
-        })
-            .then(res => {
-                if (!res.ok) {
-                    throw new Error("Failed to delete role");
-                }
-
-                // Remove user from local state
-                setRoles(prevRoles =>
-                    prevRoles.filter(role => role.id !== roleId)
-                );
-
-                toast.success("User deleted!");
-            })
-            .catch(err => {
-                console.error("Error deleting role:", err);
-                toast.error("Delete failed");
+    async function handleDelete(roleId: number) {
+        if (roleId <= 0) return
+        if (!window.confirm("Are you sure you want to delete this role?")) return;
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/roles/${roleId}`, {
+                method: "DELETE",
             });
-    };
-
-    // Handle next page
-    const handleNext = async () => {
-        try {
-            const nextPage = page + 10;
-
-            const res = await fetch(
-            `http://127.0.0.1:8000/users/?skip=${nextPage}&limit=10`
-            );
-            const data = await res.json();
-
-            if (!data || data.length === 0) {
-            console.log("No more users");
-            setHasMore(false);
-            return;
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Unexpected HTTP status; request may be unsuccessful");
             }
-
-            setRoles(data);
-            setPage(nextPage);
-        } catch (err) {
-            console.error("Error fetching users:", err);
+            handleLog(`update`, `role`, roleId, 1)
+            toast.success(`Role deleted successfully! ID: ${roleId}`);
+            setRoles(prev => prev.filter(role => role.id !== roleId));
+        } catch (err: any) {
+            toast.error(`Error deleting role: ${err.message}`);
         }
-    };
+    }
 
-    // Handle prev page
-    const handlePrev = async () => {
-        if (page <= 0) return;
-
-        const prevPage = Math.max(page - 10, 0);
-
-        try {
-            const res = await fetch(
-            `http://127.0.0.1:8000/users/?skip=${prevPage}&limit=10`
-            );
-            const data = await res.json();
-
-            if (!data || data.length === 0) return;
-
-            setRoles(data);
-            setHasMore(true);
-            setPage(prevPage);
-        } catch (err) {
-            console.error("Error fetching users:", err);
-        }
+    // create audit log
+    const handleLog = (action: string, target_type: string, target_id: number, user_id: number) => {
+        const payload = {
+            action: action,
+            target_type: target_type,
+            target_id: target_id,
+            user_id: user_id
+        };
+        fetch("http://127.0.0.1:8000/auditlogs/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        })
     };
 
     return (
@@ -211,10 +170,10 @@ function RoleManagement() {
                                         <td>{role.id}</td>
                                         <td>{role.name}</td>
                                         <td>
-                                            <button onClick={() => handleModifyClick(role)}>
+                                            <button onClick={(e) => handleModify(e,role)}>
                                                 <i className="bi bi-pencil-square"></i>
                                             </button>
-                                            <button className="mx-2 bg-danger" onClick={() => handleDeleteRole(role.id)}>
+                                            <button className="mx-2 bg-danger" onClick={() => handleDelete(role.id)}>
                                                 <i className="bi bi-trash"></i>
                                             </button>
                                         </td>
@@ -246,7 +205,7 @@ function RoleManagement() {
                     <h5 className="card-title card_title">{selectedRole.id ? "Modify User" : "Add New User"}</h5>
                     <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
-                        <form onSubmit={selectedRole.id ? handleSubmit : handleCreateRole}>
+                        <form onSubmit={selectedRole.id ? handleUpdate : handleCreate}>
 
                             <div className="row">
                                 <div className="col-4">

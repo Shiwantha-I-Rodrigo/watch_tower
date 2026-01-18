@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { ToastContainer, toast } from "react-toastify";
+
+const PAGE_LIMIT = 10;
 
 function AuditManagement() {
     const [page, setPage] = useState(0);
-    const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
     const [hasMore, setHasMore] = useState(true);
-    const [selectedLog, setSelectedLog] = useState<AuditLogForm | null>(null);
+    const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+    const [selectedAuditLog, setSelectedAuditLog] = useState<AuditLogForm | null>(null);
 
     type AuditLog = {
         id: number;
@@ -24,17 +26,40 @@ function AuditManagement() {
         user_id?: number | null;
     };
 
-    // Fetch audit logs on load
-    useEffect(() => {
-        fetch(`http://127.0.0.1:8000/auditlogs/?skip=0&limit=10`)
-            .then(res => res.json())
-            .then(data => setAuditLogs(data))
-            .catch(err => console.error("Error fetching audit logs:", err));
+    // fetch auditlogs
+    const fetchAuditLogs = useCallback(async (skip: number) => {
+        try {
+            const res = await fetch(`http://127.0.0.1:8000/auditlogs/?skip=${skip}&limit=${PAGE_LIMIT}`);
+            if (!res.ok) throw new Error("Failed to fetch auditlogs");
+            const data: AuditLog[] = await res.json();
+            setAuditLogs(data);
+            setHasMore(data.length === PAGE_LIMIT);
+            setPage(skip);
+        } catch (err: any) {
+            toast.error(`Error fetching auditlogs: ${err.message}`);
+        }
     }, []);
 
-    // Handle Modify button click
-    const handleModifyClick = (log: AuditLog) => {
-        setSelectedLog({
+    useEffect(() => {
+        fetchAuditLogs(0);
+    }, [fetchAuditLogs]);
+
+    // handle next page
+    const handleNext = () => {
+        if (!hasMore) return;
+        fetchAuditLogs(page + PAGE_LIMIT);
+    };
+
+    // handle prev page
+    const handlePrev = () => {
+        if (page <= 0) return;
+        fetchAuditLogs(Math.max(page - PAGE_LIMIT, 0));
+    };
+
+    // handle modify form
+    const handleModify = (e: React.MouseEvent<HTMLButtonElement>, log: AuditLog) => {
+        e.preventDefault()
+        setSelectedAuditLog({
             id: log.id,
             action: log.action,
             target_type: log.target_type,
@@ -43,139 +68,96 @@ function AuditManagement() {
         });
     };
 
-    // Handle form input change
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target;
-        setSelectedLog(prev => prev ? { ...prev, [name]: value } : prev);
-    };
+    // handle input change
+    const handleChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement | HTMLTextAreaElement>) => {
+        e.preventDefault()
+        const { name, value, dataset } = e.target
+        const parsed = dataset.type === "number" ? value === "" ? null : Number(value) : value
+        setSelectedAuditLog(prev => ({ ...prev!, [name]: parsed, }))
+    }
 
-    // Create audit log
-    const handleCreateLog = (e: React.FormEvent<HTMLFormElement>) => {
+    // create audit_log
+    async function handleCreate(e: React.FormEvent) {
         e.preventDefault();
-        if (!selectedLog) return;
-        if (!confirm("Are you sure you want to create this audit log?")) return;
+        if (!window.confirm("Are you sure you want to create this auditlog?")) return;
+        if (!selectedAuditLog) return;
+        try {
+            const response = await fetch("http://127.0.0.1:8000/auditlogs/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(selectedAuditLog),
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Unexpected HTTP status; request may be unsuccessful");
+            }
+            const created = await response.json();
+            handleLog(`create`, `auditlog`, created.id, 1)
+            toast.success(`AuditLog created successfully! ID: ${created.id}`);
+            setSelectedAuditLog(null);
+        } catch (err: any) {
+            toast.error(`Error creating auditlog: ${err.message}`);
+        }
+    }
 
+    // update auditlog
+    async function handleUpdate(e: React.FormEvent) {
+        e.preventDefault();
+        if (!selectedAuditLog?.id) return;
+        if (!window.confirm("Are you sure you want to update this auditlog?")) return;
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/auditlogs/${selectedAuditLog.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(selectedAuditLog),
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Unexpected HTTP status; request may be unsuccessful");
+            }
+            const updated = await response.json();
+            handleLog(`update`, `auditlog`, updated.id, 1)
+            toast.success(`AuditLog updated successfully! ID: ${selectedAuditLog.id}`);
+            setAuditLogs(prev => prev.map(auditlog => (auditlog.id === updated.id ? updated : auditlog)));
+            setSelectedAuditLog(null);
+        } catch (err: any) {
+            toast.error(`Error updating auditlog: ${err.message}`);
+        }
+    }
+
+    // delete auditlog
+    async function handleDelete(auditlogId: number) {
+        if (auditlogId <= 0) return
+        if (!window.confirm("Are you sure you want to delete this auditlog?")) return;
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/auditlogs/${auditlogId}`, {
+                method: "DELETE",
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Unexpected HTTP status; request may be unsuccessful");
+            }
+            handleLog(`update`, `auditlog`, auditlogId, 1)
+            toast.success(`AuditLog deleted successfully! ID: ${auditlogId}`);
+            setAuditLogs(prev => prev.filter(auditlog => auditlog.id !== auditlogId));
+        } catch (err: any) {
+            toast.error(`Error deleting auditlog: ${err.message}`);
+        }
+    }
+
+    // create audit log
+    const handleLog = (action: string, target_type: string, target_id: number, user_id: number) => {
         const payload = {
-            action: selectedLog.action,
-            target_type: selectedLog.target_type,
-            target_id: selectedLog.target_id,
-            user_id: selectedLog.user_id
+            action: action,
+            target_type: target_type,
+            target_id: target_id,
+            user_id: user_id
         };
-
         fetch("http://127.0.0.1:8000/auditlogs/", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
         })
-            .then(res => {
-                if (!res.ok) throw new Error("Failed to create audit log");
-                return res.json();
-            })
-            .then((newLog: AuditLog) => {
-                setAuditLogs(prev => [...prev, newLog]);
-                toast.success("Audit log created!");
-                setSelectedLog(null);
-            })
-            .catch(err => {
-                console.error("Error creating audit log:", err);
-                toast.error("Create failed");
-            });
-    };
-
-    // Submit updated audit log (PATCH)
-    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        if (!selectedLog || !selectedLog.id) return;
-        if (!confirm("Are you sure you want to update this audit log?")) return;
-
-        const payload: AuditLogForm = {
-            action: selectedLog.action,
-            target_type: selectedLog.target_type,
-            target_id: selectedLog.target_id,
-            user_id: selectedLog.user_id
-        };
-
-        fetch(`http://127.0.0.1:8000/auditlogs/${selectedLog.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-        })
-            .then(res => {
-                if (!res.ok) throw new Error("Failed to update audit log");
-                return res.json();
-            })
-            .then((updatedLog: AuditLog) => {
-                setAuditLogs(prev =>
-                    prev.map(log => log.id === updatedLog.id ? updatedLog : log)
-                );
-                toast.success("Audit log updated!");
-                setSelectedLog(null);
-            })
-            .catch(err => {
-                console.error("Error updating audit log:", err);
-                toast.error("Update failed");
-            });
-    };
-
-    // Delete audit log
-    const handleDeleteLog = (logId: number) => {
-        if (!confirm("Are you sure you want to delete this audit log?")) return;
-
-        fetch(`http://127.0.0.1:8000/auditlogs/${logId}`, { method: "DELETE" })
-            .then(res => {
-                if (!res.ok) throw new Error("Failed to delete audit log");
-                setAuditLogs(prev => prev.filter(log => log.id !== logId));
-                toast.success("Audit log deleted!");
-            })
-            .catch(err => {
-                console.error("Error deleting audit log:", err);
-                toast.error("Delete failed");
-            });
-    };
-
-    // Handle next page
-    const handleNext = async () => {
-        try {
-            const nextPage = page + 10;
-
-            const res = await fetch(
-                `http://127.0.0.1:8000/users/?skip=${nextPage}&limit=10`
-            );
-            const data = await res.json();
-
-            if (!data || data.length === 0) {
-                console.log("No more users");
-                setHasMore(false);
-                return;
-            }
-
-            setAuditLogs(data);
-            setPage(nextPage);
-        } catch (err) {
-            console.error("Error fetching users:", err);
-        }
-    };
-
-    // Handle prev page
-    const handlePrev = async () => {
-        if (page <= 0) return;
-
-        const prevPage = Math.max(page - 10, 0);
-
-        try {
-            const res = await fetch(
-                `http://127.0.0.1:8000/users/?skip=${prevPage}&limit=10`
-            );
-            const data = await res.json();
-
-            if (!data || data.length === 0) return;
-
-            setAuditLogs(data);
-            setHasMore(true);
-            setPage(prevPage);
-        } catch (err) {
-            console.error("Error fetching users:", err);
-        }
     };
 
     return (
@@ -184,10 +166,10 @@ function AuditManagement() {
             <div className="col-12 d-flex justify-content-start">
                 <h2>User Management</h2>
             </div>
-            <div className={selectedLog ? "col-md-12 col-lg-6" : "col-12"}>
+            <div className={selectedAuditLog ? "col-md-12 col-lg-6" : "col-12"}>
                 <div className="card h-100">
                     <h5 className="card-title card_title">System Users</h5>
-                    <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
+                    <img src="src/audit_logs/banner_blue.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
                         {/*TABLE*/}
                         <table cellPadding="1" className="w-100">
@@ -212,12 +194,12 @@ function AuditManagement() {
                                         <td>{log.user ? log.user.username : "-"}</td>
                                         <td>{new Date(log.timestamp).toLocaleString()}</td>
                                         <td>
-                                            <button onClick={() => handleModifyClick(log)}>
+                                            <button onClick={(e) => handleModify(e,log)}>
                                                 <i className="bi bi-pencil-square"></i>
                                             </button>
                                             <button
                                                 className="mx-2 bg-danger"
-                                                onClick={() => handleDeleteLog(log.id)}
+                                                onClick={() => handleDelete(log.id)}
                                             >
                                                 <i className="bi bi-trash"></i>
                                             </button>
@@ -235,7 +217,7 @@ function AuditManagement() {
                                 <button
                                     className="btn btn-success w-100"
                                     onClick={() =>
-                                        setSelectedLog({
+                                        setSelectedAuditLog({
                                             action: "",
                                             target_type: "",
                                             target_id: undefined,
@@ -253,19 +235,19 @@ function AuditManagement() {
                 </div>
             </div>
 
-            {selectedLog && (
+            {selectedAuditLog && (
                 <div className="col-md-12 col-lg-6">
                     <div className="card h-100">
                         <h5 className="card-title card_title">
-                            {selectedLog.id ? "Modify Audit Log" : "Add New Audit Log"}
+                            {selectedAuditLog.id ? "Modify Audit Log" : "Add New Audit Log"}
                         </h5>
                         <img
-                            src="src/assets/banner_blue.png"
+                            src="src/audit_logs/banner_blue.png"
                             alt="Card banner"
                             className="img-fluid"
                         />
                         <div className="card-body">
-                            <form onSubmit={selectedLog.id ? handleSubmit : handleCreateLog}>
+                            <form onSubmit={selectedAuditLog.id ? handleUpdate : handleCreate}>
                                 {/* Action */}
                                 <div className="row mb-2">
                                     <div className="col-4">
@@ -275,7 +257,7 @@ function AuditManagement() {
                                         <input
                                             className="rounded text-dark bg-light border border-2 border-dark"
                                             name="action"
-                                            value={selectedLog.action || ""}
+                                            value={selectedAuditLog.action || ""}
                                             onChange={handleChange}
                                             required
                                         />
@@ -291,7 +273,7 @@ function AuditManagement() {
                                         <input
                                             className="rounded text-dark bg-light border border-2 border-dark"
                                             name="target_type"
-                                            value={selectedLog.target_type || ""}
+                                            value={selectedAuditLog.target_type || ""}
                                             onChange={handleChange}
                                             required
                                         />
@@ -308,7 +290,7 @@ function AuditManagement() {
                                             type="number"
                                             className="rounded text-dark bg-light border border-2 border-dark"
                                             name="target_id"
-                                            value={selectedLog.target_id ?? ""}
+                                            value={selectedAuditLog.target_id ?? ""}
                                             onChange={handleChange}
                                         />
                                     </div>
@@ -324,7 +306,7 @@ function AuditManagement() {
                                             type="number"
                                             className="rounded text-dark bg-light border border-2 border-dark"
                                             name="user_id"
-                                            value={selectedLog.user_id ?? ""}
+                                            value={selectedAuditLog.user_id ?? ""}
                                             onChange={handleChange}
                                         />
                                     </div>
@@ -335,14 +317,14 @@ function AuditManagement() {
                                     <div className="col-6"></div>
                                     <div className="col-3">
                                         <button type="submit" className="btn btn-success w-100">
-                                            {selectedLog.id ? "Save" : "Create"}
+                                            {selectedAuditLog.id ? "Save" : "Create"}
                                         </button>
                                     </div>
                                     <div className="col-3">
                                         <button
                                             type="button"
                                             className="btn btn-primary w-100"
-                                            onClick={() => setSelectedLog(null)}
+                                            onClick={() => setSelectedAuditLog(null)}
                                         >
                                             Cancel
                                         </button>

@@ -148,6 +148,8 @@ class AlertRead(AlertBase):
 class AlertUpdate(BaseModel):
     severity: Optional[str] = None
     status: Optional[str] = None
+    rule_id: int
+    event_id: int
 
 
 class IncidentBase(BaseModel):

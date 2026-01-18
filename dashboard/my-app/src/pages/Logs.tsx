@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { ToastContainer, toast } from "react-toastify";
+
+const PAGE_LIMIT = 10;
 
 function LogManagement() {
     const [page, setPage] = useState(0);
@@ -38,16 +40,39 @@ function LogManagement() {
         raw_payload: string;
     };
 
-    // Fetch logs on load
-    useEffect(() => {
-    fetch("http://127.0.0.1:8000/rawlogs/?skip=0&limit=50")
-        .then(res => res.json())
-        .then(data => setLogs(data))
-        .catch(err => console.error("Error fetching logs:", err));
+    // fetch rawlogs
+    const fetchLogs = useCallback(async (skip: number) => {
+        try {
+            const res = await fetch(`http://127.0.0.1:8000/rawlogs/?skip=${skip}&limit=${PAGE_LIMIT}`);
+            if (!res.ok) throw new Error("Failed to fetch rawlogs");
+            const data: RawLog[] = await res.json();
+            setLogs(data);
+            setHasMore(data.length === PAGE_LIMIT);
+            setPage(skip);
+        } catch (err: any) {
+            toast.error(`Error fetching rawlogs: ${err.message}`);
+        }
     }, []);
 
-    // Handle Modify button click
-    const handleModifyClick = (log: RawLog) => {
+    useEffect(() => {
+        fetchLogs(0);
+    }, [fetchLogs]);
+
+    // handle next page
+    const handleNext = () => {
+        if (!hasMore) return;
+        fetchLogs(page + PAGE_LIMIT);
+    };
+
+    // handle prev page
+    const handlePrev = () => {
+        if (page <= 0) return;
+        fetchLogs(Math.max(page - PAGE_LIMIT, 0));
+    };
+
+    // handle modify form
+    const handleModify = (e: React.MouseEvent<HTMLButtonElement>, log: RawLog) => {
+        e.preventDefault()
         setSelectedLog({
             id: log.id,
             event_id: log.event.id,
@@ -55,143 +80,104 @@ function LogManagement() {
         });
     };
 
-    // Handle form input change
-    const handleChange = (
-        e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-        const { name, value } = e.target;
+    // handle input change
+    const handleChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement | HTMLTextAreaElement>) => {
+        e.preventDefault()
+        const { name, value, dataset } = e.target
+        const parsed = dataset.type === "number" ? value === "" ? null : Number(value) : value
+        setSelectedLog(prev => ({ ...prev!, [name]: parsed, }))
+    }
 
-        setSelectedLog(prev => {
-            if (!prev) return prev;
-
-            // numeric fields
-            if (name === "event_id") {
-                return {
-                    ...prev,
-                    event_id: Number(value),
-                };
-            }
-
-            // raw_payload stays STRING here
-            if (name === "raw_payload") {
-                return {
-                    ...prev,
-                    raw_payload: value,
-                };
-            }
-
-            return {
-                ...prev,
-                [name]: value,
-            };
-        });
-    };
-
-
-    // Create log
-    const handleCreateLog = (e: React.ChangeEvent<HTMLFormElement>) => {
+    // create log
+    async function handleCreate(e: React.FormEvent) {
         e.preventDefault();
+        if (!window.confirm("Are you sure you want to create this log?")) return;
         if (!selectedLog) return;
-
-        fetch("http://127.0.0.1:8000/rawlogs/", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
+        try {
+            const payload = {
                 event_id: selectedLog.event_id,
-                raw_payload: JSON.parse(selectedLog.raw_payload),
-            }),
-        })
-            .then(res => res.json())
-            .then((newLog: RawLog) => {
-                setLogs(prev => [...prev, newLog]);
-                toast.success("Log created!");
-                setSelectedLog(null);
-            })
-            .catch(() => toast.error("Failed to create log"));
-    };
+                raw_payload: JSON.parse(selectedLog.raw_payload)
+            };
+            const response = await fetch("http://127.0.0.1:8000/rawlogs/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Unexpected HTTP status; request may be unsuccessful");
+            }
+            const created = await response.json();
+            handleLog(`create`, `log`, created.id, 1)
+            toast.success(`Log created successfully! ID: ${created.id}`);
+            setSelectedLog(null);
+        } catch (err: any) {
+            toast.error(`Error creating log: ${err.message}`);
+        }
+    }
 
-
-    // Submit updated log
-    const handleSubmit = (e: React.ChangeEvent<HTMLFormElement>) => {
+    // update log
+    async function handleUpdate(e: React.FormEvent) {
         e.preventDefault();
         if (!selectedLog?.id) return;
-
-        fetch(`http://127.0.0.1:8000/rawlogs/${selectedLog.id}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                raw_payload: JSON.parse(selectedLog.raw_payload),
+        if (!window.confirm("Are you sure you want to update this log?")) return;
+        try {
+            const payload = {
                 event_id: selectedLog.event_id,
-            }),
-        })
-            .then(res => res.json())
-            .then((updated: RawLog) => {
-                setLogs(prev =>
-                    prev.map(l => (l.id === updated.id ? updated : l))
-                );
-                toast.success("Log updated!");
-            })
-            .catch(() => toast.error("Update failed"));
-    };
-
+                raw_payload: JSON.parse(selectedLog.raw_payload)
+            };
+            const response = await fetch(`http://127.0.0.1:8000/rawlogs/${selectedLog.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Unexpected HTTP status; request may be unsuccessful");
+            }
+            const updated = await response.json();
+            handleLog(`update`, `log`, updated.id, 1)
+            toast.success(`Log updated successfully! ID: ${selectedLog.id}`);
+            setLogs(prev => prev.map(log => (log.id === updated.id ? updated : log)));
+            setSelectedLog(null);
+        } catch (err: any) {
+            toast.error(`Error updating log: ${err.message}`);
+        }
+    }
 
     // delete log
-    const handleDeleteLog = (logId: number) => {
-        if (!confirm("Delete this log?")) return;
-
-        fetch(`http://127.0.0.1:8000/rawlogs/${logId}`, {
-            method: "DELETE",
-        })
-            .then(() => {
-                setLogs(prev => prev.filter(l => l.id !== logId));
-                toast.success("Log deleted!");
-            })
-            .catch(() => toast.error("Delete failed"));
-    };
-
-
-    // Handle next page
-    const handleNext = async () => {
+    async function handleDelete(logId: number) {
+        if (logId <= 0) return
+        if (!window.confirm("Are you sure you want to delete this log?")) return;
         try {
-            const nextPage = page + 10;
-
-            const res = await fetch(
-            `http://127.0.0.1:8000/logs/?skip=${nextPage}&limit=10`
-            );
-            const data = await res.json();
-
-            if (!data || data.length === 0) {
-            console.log("No more logs");
-            setHasMore(false);
-            return;
+            const response = await fetch(`http://127.0.0.1:8000/rawlogs/${logId}`, {
+                method: "DELETE",
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Unexpected HTTP status; request may be unsuccessful");
             }
-
-            setLogs(data);
-            setPage(nextPage);
-        } catch (err) {
-            console.error("Error fetching logs:", err);
+            handleLog(`update`, `log`, logId, 1)
+            toast.success(`Log deleted successfully! ID: ${logId}`);
+            setLogs(prev => prev.filter(log => log.id !== logId));
+        } catch (err: any) {
+            toast.error(`Error deleting log: ${err.message}`);
         }
-    };
+    }
 
-    // Handle prev page
-    const handlePrev = async () => {
-        if (page <= 0) return;
-
-        const prevPage = Math.max(page - 10, 0);
-
-        try {
-            const res = await fetch(
-            `http://127.0.0.1:8000/logs/?skip=${prevPage}&limit=10`
-            );
-            const data = await res.json();
-
-            if (!data || data.length === 0) return;
-
-            setLogs(data);
-            setHasMore(true);
-            setPage(prevPage);
-        } catch (err) {
-            console.error("Error fetching logs:", err);
-        }
+    // create audit log
+    const handleLog = (action: string, target_type: string, target_id: number, user_id: number) => {
+        const payload = {
+            action: action,
+            target_type: target_type,
+            target_id: target_id,
+            user_id: user_id
+        };
+        fetch("http://127.0.0.1:8000/auditlogs/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        })
     };
 
     return (
@@ -224,10 +210,10 @@ function LogManagement() {
                                         <td>{log.ingested_at}</td>
                                         <td className="json-cell">{JSON.stringify(log.raw_payload)}</td>
                                         <td>
-                                            <button onClick={() => handleModifyClick(log)}>
+                                            <button onClick={(e) => handleModify(e,log)}>
                                                 <i className="bi bi-pencil-square"></i>
                                             </button>
-                                            <button className="mx-2 bg-danger" onClick={() => handleDeleteLog(log.id)}>
+                                            <button className="mx-2 bg-danger" onClick={() => handleDelete(log.id)}>
                                                 <i className="bi bi-trash"></i>
                                             </button>
                                         </td>
@@ -259,7 +245,7 @@ function LogManagement() {
                     <h5 className="card-title card_title">{selectedLog.id ? "Modify User" : "Add New User"}</h5>
                     <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
-                        <form onSubmit={selectedLog.id ? handleSubmit : handleCreateLog}>
+                        <form onSubmit={selectedLog.id ? handleUpdate : handleCreate}>
 
                             <div className="row">
                                 <div className="col-4">
