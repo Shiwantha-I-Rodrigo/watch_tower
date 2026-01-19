@@ -169,7 +169,7 @@ function AuditManagement() {
             <div className={selectedAuditLog ? "col-md-12 col-lg-6" : "col-12"}>
                 <div className="card h-100">
                     <h5 className="card-title card_title">System Users</h5>
-                    <img src="src/audit_logs/banner_blue.png" alt="Card image" className="img-fluid"></img>
+                    <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
                         {/*TABLE*/}
                         <table cellPadding="1" className="w-100">
@@ -242,7 +242,7 @@ function AuditManagement() {
                             {selectedAuditLog.id ? "Modify Audit Log" : "Add New Audit Log"}
                         </h5>
                         <img
-                            src="src/audit_logs/banner_blue.png"
+                            src="src/assets/banner_blue.png"
                             alt="Card banner"
                             className="img-fluid"
                         />

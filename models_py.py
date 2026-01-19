@@ -255,3 +255,15 @@ class EventIndicatorBase(BaseModel):
 class EventIndicatorRead(EventIndicatorBase):
     class Config:
         orm_mode = True
+
+class SeverityCount(BaseModel):
+    name: str
+    value: int
+
+class EventTrendPoint(BaseModel):
+    time: str
+    events: int
+
+class SourceCount(BaseModel):
+    source: str
+    count: int

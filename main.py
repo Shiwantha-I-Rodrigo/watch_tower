@@ -2,9 +2,10 @@
 # cors preventing cors errors with middleware
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, HTTPException, Depends, Path
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, func
 from sqlalchemy.orm import sessionmaker, Session
 from typing import List
+from datetime import datetime, timedelta
 from models_db import Base, User, Role, UserRole, Asset, Event, RawLog, Rule, RuleCondition, Alert, Incident, AuditLog
 from models_py import ( 
     UserCreate, UserRead, UserUpdate,
@@ -21,10 +22,10 @@ from models_py import (
     UserRoleBase, UserRoleRead,
     IndicatorCreate, IndicatorRead,
     EventIndicatorBase, EventIndicatorRead,
+    SeverityCount, EventTrendPoint, SourceCount
     )
 
 
-# Create FastAPI app
 app = FastAPI()
 
 
@@ -614,3 +615,62 @@ def delete_auditlog(auditlog_id: int, db: Session = Depends(get_db)):
     db.delete(audit)
     db.commit()
     return
+
+
+# Home --------------------------------------------------------------------------------------------------------------------
+@app.get("/events/severity-count", response_model=List[SeverityCount])
+def get_event_severity_counts(db: Session = Depends(get_db)):
+    results = (
+        db.query(
+            Event.severity.label("name"),
+            func.count(Event.id).label("value")
+        )
+        .group_by(Event.severity)
+        .all()
+    )
+    return results
+
+@app.get("/alerts/severity-count", response_model=List[SeverityCount])
+def get_event_severity_counts(db: Session = Depends(get_db)):
+    results = (
+        db.query(
+            Alert.severity.label("name"),
+            func.count(Alert.id).label("value")
+        )
+        .group_by(Alert.severity)
+        .all()
+    )
+    return results
+
+def round_time_to_nearest_5min(dt: datetime) -> str:
+    rounded = dt - timedelta(minutes=dt.minute % 5,
+                             seconds=dt.second,
+                             microseconds=dt.microsecond)
+    return rounded.strftime("%H:%M")
+
+@app.get("/events/event-count", response_model=List[EventTrendPoint])
+def get_event_trends(db: Session = Depends(get_db)):
+    events = db.query(Event.timestamp).all()
+    counts = {}
+    for (ts,) in events:
+        interval = round_time_to_nearest_5min(ts)
+        counts[interval] = counts.get(interval, 0) + 1
+    result = [EventTrendPoint(time=k, events=v) for k, v in sorted(counts.items())]
+    return result
+
+@app.get("/events/source-count", response_model=List[SourceCount])
+def get_top_10_assets(db: Session = Depends(get_db)):
+    since = datetime.utcnow() - timedelta(days=1)
+    results = (
+        db.query(
+            Asset.name.label("source"),
+            func.count(Event.id).label("count")
+        )
+        .join(Event, Event.asset_id == Asset.id)
+        .filter(Event.timestamp >= since)
+        .group_by(Asset.id)
+        .order_by(func.count(Event.id).desc())
+        .limit(10)
+        .all()
+    )
+    return results
