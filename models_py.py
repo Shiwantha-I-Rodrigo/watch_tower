@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, EmailStr
 
 class RoleBase(BaseModel):
@@ -78,7 +78,7 @@ class EventUpdate(BaseModel):
 
 
 class RawLogBase(BaseModel):
-    raw_payload: dict
+    raw_payload: Dict[str, Any]
 
 class RawLogCreate(RawLogBase):
     event_id: int

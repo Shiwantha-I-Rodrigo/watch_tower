@@ -184,11 +184,11 @@ function LogManagement() {
         <div className="row content g-4">
 
             <div className="col-12 d-flex justify-content-start">
-                <h2>User Management</h2>
+                <h5>Log Management</h5>
             </div>
             <div className={selectedLog ? "col-md-12 col-lg-6" : "col-12"}>
                 <div className="card h-100">
-                    <h5 className="card-title card_title">System Users</h5>
+                    <h5 className="card-title card_title">Logs</h5>
                     <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
                         {/*TABLE*/}
@@ -208,12 +208,12 @@ function LogManagement() {
                                         <td>{log.id}</td>
                                         <td>{log.event.id}</td>
                                         <td>{log.ingested_at}</td>
-                                        <td className="json-cell">{JSON.stringify(log.raw_payload)}</td>
-                                        <td>
-                                            <button onClick={(e) => handleModify(e,log)}>
+                                        <td className="json-cell p-3">{JSON.stringify(log.raw_payload)}</td>
+                                        <td className="action-block">
+                                            <button className="blue_b p-1" onClick={(e) => handleModify(e,log)}>
                                                 <i className="bi bi-pencil-square"></i>
                                             </button>
-                                            <button className="mx-2 bg-danger" onClick={() => handleDelete(log.id)}>
+                                            <button className="mx-2 red_b p-1" onClick={() => handleDelete(log.id)}>
                                                 <i className="bi bi-trash"></i>
                                             </button>
                                         </td>
@@ -224,16 +224,16 @@ function LogManagement() {
                     </div>
                     <div className="card-body row justify-content-center">
                         <div className="col-3">
-                            <button type="button" className="btn btn-primary w-100" disabled={page === 0} onClick={() => handlePrev()}>Previous</button>
+                            <button type="button" className="btn blue_b w-100" disabled={page === 0} onClick={() => handlePrev()}>Previous</button>
                         </div>
                         <div className="col-3">
                             <button
-                                className="btn btn-success w-100"
+                                className="btn green_b w-100"
                                 onClick={() => setSelectedLog({ event_id: 0, raw_payload: ""})}
-                            >Add User</button>
+                            >Add Log</button>
                         </div>
                         <div className="col-3">
-                            <button type="button" className="btn btn-primary w-100" disabled={!hasMore} onClick={() => handleNext()}>Next</button>
+                            <button type="button" className="btn blue_b w-100" disabled={!hasMore} onClick={() => handleNext()}>Next</button>
                         </div>
                     </div>
                 </div>
@@ -242,8 +242,8 @@ function LogManagement() {
             {selectedLog && (<div className="col-md-12 col-lg-6">
                 <div className="card h-100">
 
-                    <h5 className="card-title card_title">{selectedLog.id ? "Modify User" : "Add New User"}</h5>
-                    <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
+                    <h5 className="card-title card_title">{selectedLog.id ? "Modify Log" : "Add New Log"}</h5>
+                    <img src="src/assets/banner_orange.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
                         <form onSubmit={selectedLog.id ? handleUpdate : handleCreate}>
 
@@ -253,7 +253,7 @@ function LogManagement() {
                                 </div>
                                 <div className="col-8">
                                     <input
-                                        className="rounded text-dark bg-light border border-2 border-dark"
+                                        className="rounded border border-2 border-dark text-light bg-dark"
                                         name="event_id"
                                         value={selectedLog.event_id}
                                         onChange={handleChange}
@@ -268,7 +268,7 @@ function LogManagement() {
                                 </div>
                                 <div className="col-8">
                                     <textarea
-                                        className="rounded text-dark bg-light border border-2 border-dark w-100"
+                                        className="rounded border border-2 border-dark text-light bg-dark w-100"
                                         name="raw_payload"
                                         style={{ height: "300px" }}
                                         value={selectedLog.raw_payload}
@@ -282,12 +282,12 @@ function LogManagement() {
                                 <div className="col-6">
                                 </div>
                                 <div className="col-3">
-                                    <button type="submit" className="btn btn-success w-100">
+                                    <button type="submit" className="btn green_b w-100">
                                         {selectedLog.id ? "Save" : "Create"}
                                     </button>
                                 </div>
                                 <div className="col-3">
-                                    <button type="button" className="btn btn-primary w-100" onClick={() => setSelectedLog(null)}>Cancel</button>
+                                    <button type="button" className="btn blue_b w-100" onClick={() => setSelectedLog(null)}>Cancel</button>
                                 </div>
 
                             </div>

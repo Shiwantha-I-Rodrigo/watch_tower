@@ -164,11 +164,11 @@ function AuditManagement() {
         <div className="row content g-4">
 
             <div className="col-12 d-flex justify-content-start">
-                <h2>User Management</h2>
+                <h5>Audit Management</h5>
             </div>
             <div className={selectedAuditLog ? "col-md-12 col-lg-6" : "col-12"}>
                 <div className="card h-100">
-                    <h5 className="card-title card_title">System Users</h5>
+                    <h5 className="card-title card_title">Audits</h5>
                     <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
                         {/*TABLE*/}
@@ -193,14 +193,11 @@ function AuditManagement() {
                                         <td>{log.target_id ?? "-"}</td>
                                         <td>{log.user ? log.user.username : "-"}</td>
                                         <td>{new Date(log.timestamp).toLocaleString()}</td>
-                                        <td>
-                                            <button onClick={(e) => handleModify(e,log)}>
+                                        <td className="action-block">
+                                            <button className="blue_b p-1" onClick={(e) => handleModify(e,log)}>
                                                 <i className="bi bi-pencil-square"></i>
                                             </button>
-                                            <button
-                                                className="mx-2 bg-danger"
-                                                onClick={() => handleDelete(log.id)}
-                                            >
+                                            <button className="mx-2 red_b p-1" onClick={() => handleDelete(log.id)}>
                                                 <i className="bi bi-trash"></i>
                                             </button>
                                         </td>
@@ -211,11 +208,11 @@ function AuditManagement() {
                     </div>
                     <div className="card-body row justify-content-center">
                         <div className="col-3">
-                            <button type="button" className="btn btn-primary w-100" disabled={page === 0} onClick={() => handlePrev()}>Previous</button>
+                            <button type="button" className="btn blue_b w-100" disabled={page === 0} onClick={() => handlePrev()}>Previous</button>
                         </div>
                             <div className="col-3">
                                 <button
-                                    className="btn btn-success w-100"
+                                    className="btn green_b w-100"
                                     onClick={() =>
                                         setSelectedAuditLog({
                                             action: "",
@@ -229,7 +226,7 @@ function AuditManagement() {
                                 </button>
                             </div>
                         <div className="col-3">
-                            <button type="button" className="btn btn-primary w-100" disabled={!hasMore} onClick={() => handleNext()}>Next</button>
+                            <button type="button" className="btn blue_b w-100" disabled={!hasMore} onClick={() => handleNext()}>Next</button>
                         </div>
                     </div>
                 </div>
@@ -242,7 +239,7 @@ function AuditManagement() {
                             {selectedAuditLog.id ? "Modify Audit Log" : "Add New Audit Log"}
                         </h5>
                         <img
-                            src="src/assets/banner_blue.png"
+                            src="src/assets/banner_red.png"
                             alt="Card banner"
                             className="img-fluid"
                         />
@@ -255,7 +252,7 @@ function AuditManagement() {
                                     </div>
                                     <div className="col-8">
                                         <input
-                                            className="rounded text-dark bg-light border border-2 border-dark"
+                                            className="rounded border border-2 border-dark text-light bg-dark"
                                             name="action"
                                             value={selectedAuditLog.action || ""}
                                             onChange={handleChange}
@@ -271,7 +268,7 @@ function AuditManagement() {
                                     </div>
                                     <div className="col-8">
                                         <input
-                                            className="rounded text-dark bg-light border border-2 border-dark"
+                                            className="rounded border border-2 border-dark text-light bg-dark"
                                             name="target_type"
                                             value={selectedAuditLog.target_type || ""}
                                             onChange={handleChange}
@@ -288,7 +285,7 @@ function AuditManagement() {
                                     <div className="col-8">
                                         <input
                                             type="number"
-                                            className="rounded text-dark bg-light border border-2 border-dark"
+                                            className="rounded border border-2 border-dark text-light bg-dark"
                                             name="target_id"
                                             value={selectedAuditLog.target_id ?? ""}
                                             onChange={handleChange}
@@ -304,7 +301,7 @@ function AuditManagement() {
                                     <div className="col-8">
                                         <input
                                             type="number"
-                                            className="rounded text-dark bg-light border border-2 border-dark"
+                                            className="rounded border border-2 border-dark text-light bg-dark"
                                             name="user_id"
                                             value={selectedAuditLog.user_id ?? ""}
                                             onChange={handleChange}
@@ -316,14 +313,14 @@ function AuditManagement() {
                                 <div className="row mt-3">
                                     <div className="col-6"></div>
                                     <div className="col-3">
-                                        <button type="submit" className="btn btn-success w-100">
+                                        <button type="submit" className="btn green_b w-100">
                                             {selectedAuditLog.id ? "Save" : "Create"}
                                         </button>
                                     </div>
                                     <div className="col-3">
                                         <button
                                             type="button"
-                                            className="btn btn-primary w-100"
+                                            className="btn blue_b w-100"
                                             onClick={() => setSelectedAuditLog(null)}
                                         >
                                             Cancel

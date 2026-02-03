@@ -224,11 +224,11 @@ function RuleManagement() {
         <div className="row content g-4">
 
             <div className="col-12 d-flex justify-content-start">
-                <h2>User Management</h2>
+                <h5>Rules Management</h5>
             </div>
             <div className={selectedRule ? "col-md-12 col-lg-6" : "col-12"}>
                 <div className="card h-100">
-                    <h5 className="card-title card_title">System Users</h5>
+                    <h5 className="card-title card_title">Rules</h5>
                     <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
                         {/*TABLE*/}
@@ -262,7 +262,7 @@ function RuleManagement() {
                                             {rule.conditions.length === 0 ? (
                                                 <em>No conditions</em>
                                             ) : (
-                                                <ul className="mb-0 ps-3">
+                                                <ul className="mb-0 ps-3 list-unstyled">
                                                     {rule.conditions.map(cond => (
                                                         <li key={cond.id}>
                                                             <strong>{cond.field}</strong>{" "}
@@ -273,18 +273,11 @@ function RuleManagement() {
                                                 </ul>
                                             )}
                                         </td>
-                                        <td>
-                                            <button
-                                                onClick={(e) => handleModify(e,rule)}
-                                                title="Edit"
-                                            >
+                                        <td className="action-block">
+                                            <button className="blue_b p-1" onClick={(e) => handleModify(e,rule)}>
                                                 <i className="bi bi-pencil-square"></i>
                                             </button>
-                                            <button
-                                                className="mx-2 bg-danger"
-                                                onClick={() => handleDelete(rule.id)}
-                                                title="Delete"
-                                            >
+                                            <button className="mx-2 red_b p-1" onClick={() => handleDelete(rule.id)}>
                                                 <i className="bi bi-trash"></i>
                                             </button>
                                         </td>
@@ -295,16 +288,16 @@ function RuleManagement() {
                     </div>
                     <div className="card-body row justify-content-center">
                         <div className="col-3">
-                            <button type="button" className="btn btn-primary w-100" disabled={page === 0} onClick={() => handlePrev()}>Previous</button>
+                            <button type="button" className="btn blue_b w-100" disabled={page === 0} onClick={() => handlePrev()}>Previous</button>
                         </div>
                         <div className="col-3">
                             <button
-                                className="btn btn-success w-100"
+                                className="btn green_b w-100"
                                 onClick={() => setSelectedRule({ id: 0, name: "", description: "", severity:"", enabled:true, conditions: []})}
-                            >Add User</button>
+                            >Add Rule</button>
                         </div>
                         <div className="col-3">
-                            <button type="button" className="btn btn-primary w-100" disabled={!hasMore} onClick={() => handleNext()}>Next</button>
+                            <button type="button" className="btn blue_b w-100" disabled={!hasMore} onClick={() => handleNext()}>Next</button>
                         </div>
                     </div>
                 </div>
@@ -318,7 +311,7 @@ function RuleManagement() {
                     </h5>
 
                     <img
-                        src="src/assets/banner_blue.png"
+                        src="src/assets/banner_green.png"
                         alt="Card image"
                         className="img-fluid"
                     />
@@ -335,7 +328,7 @@ function RuleManagement() {
                                 </div>
                                 <div className="col-8">
                                     <input
-                                        className="rounded text-dark bg-light border border-2 border-dark w-100"
+                                        className="rounded border border-2 border-dark text-light bg-dark w-100"
                                         name="name"
                                         value={selectedRule?.name ?? ""}
                                         onChange={handleRuleChange}
@@ -351,7 +344,7 @@ function RuleManagement() {
                                 </div>
                                 <div className="col-8">
                                     <select
-                                        className="rounded text-dark bg-light border border-2 border-dark w-100"
+                                        className="rounded border border-2 border-dark text-light bg-dark w-100"
                                         name="severity"
                                         value={selectedRule?.severity ?? ""}
                                         onChange={handleRuleChange}
@@ -372,7 +365,7 @@ function RuleManagement() {
                                 </div>
                                 <div className="col-8">
                                     <input
-                                        className="rounded text-dark bg-light border border-2 border-dark w-100"
+                                        className="rounded border border-2 border-dark text-light bg-dark w-100"
                                         name="description"
                                         value={selectedRule?.description ?? ""}
                                         onChange={handleRuleChange}
@@ -410,7 +403,7 @@ function RuleManagement() {
                                         </div>
                                         <div className="col-8">
                                             <input
-                                                className="rounded text-dark bg-light border border-2 border-dark w-100"
+                                                className="rounded border border-2 border-dark text-light bg-dark w-100"
                                                 name="field"
                                                 value={cond.field}
                                                 onChange={(e) =>
@@ -427,7 +420,7 @@ function RuleManagement() {
                                         </div>
                                         <div className="col-8">
                                             <select
-                                                className="rounded text-dark bg-light border border-2 border-dark w-100"
+                                                className="rounded border border-2 border-dark text-light bg-dark w-100"
                                                 name="operator"
                                                 value={cond.operator}
                                                 onChange={(e) =>
@@ -436,11 +429,16 @@ function RuleManagement() {
                                                 required
                                             >
                                                 <option value="">Select</option>
-                                                <option value="=">=</option>
-                                                <option value="!=">!=</option>
-                                                <option value=">">&gt;</option>
-                                                <option value="<">&lt;</option>
+                                                <option value="eq">eq</option>
+                                                <option value="neq">neq</option>
+                                                <option value="lt">lt</option>
+                                                <option value="lte">lte</option>
+                                                <option value="gt">gt</option>
+                                                <option value="gte">gte</option>
                                                 <option value="contains">contains</option>
+                                                <option value="startswith">startswith</option>
+                                                <option value="endswith">endswith</option>
+                                                <option value="count_gte">count_gte</option>
                                             </select>
                                         </div>
                                     </div>
@@ -451,7 +449,7 @@ function RuleManagement() {
                                         </div>
                                         <div className="col-8">
                                             <input
-                                                className="rounded text-dark bg-light border border-2 border-dark w-100"
+                                                className="rounded border border-2 border-dark text-light bg-dark w-100"
                                                 name="value"
                                                 value={cond.value}
                                                 onChange={(e) =>
@@ -486,7 +484,7 @@ function RuleManagement() {
                                 <div className="col-3">
                                     <button
                                         type="submit"
-                                        className="btn btn-success w-100"
+                                        className="btn green_b w-100"
                                     >
                                         {selectedRule?.id ? "Save" : "Create"}
                                     </button>
@@ -494,7 +492,7 @@ function RuleManagement() {
                                 <div className="col-3">
                                     <button
                                         type="button"
-                                        className="btn btn-primary w-100"
+                                        className="btn blue_b w-100"
                                         onClick={() => setSelectedRule(null)}
                                     >
                                         Cancel

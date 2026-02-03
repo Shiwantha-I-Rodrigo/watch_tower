@@ -6,7 +6,20 @@
 body {
     margin: 0;
     font-family: Arial, sans-serif;
-    background: #f4f6f8;
+    background: #0D0208;
+    color: #F2F7FA;
+}
+
+table, select, input, h1, h2, h3, p, a  {
+    background: #0D0208;
+    color: #F2F7FA;
+}
+
+.card {
+    font-family: Arial, sans-serif;
+    background: #0D0208;
+    color: #F2F7FA;
+    border: 2px solid #F2F7FA;
 }
 
 .sidebar {
@@ -15,8 +28,8 @@ body {
     left: 0px;
     height: 100vh;
     width: 10vw;
-    background: #1f2937;
-    color: white;
+    background: #0D0208;
+    color: #F2F7FA;
     padding: 20px;
 }
 
@@ -27,29 +40,17 @@ body {
 
 .sidebar a {
     display: block;
-    color: #d1d5db;
+    color: #F2F7FA;
     text-decoration: none;
     margin: 10px 0;
 }
 
 .sidebar a:hover {
-    color: white;
+    color: #04548c;
 }
 
 .profile {
     width: 70%;
-}
-
-.footer {
-    position: fixed;
-    bottom: 0%;
-    left: 50%;
-    width: 100vw;
-    height: 4vh;
-    transform: translate(-50%, 0%);
-    background-color: #1f2937;
-    padding-top: 1vh;
-    z-index: 99;
 }
 
 .content {
@@ -109,9 +110,44 @@ body {
 }
 
 .json-cell{
+  max-width: 30vw;
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-wrap: anywhere;
   text-align: justify;
   margin: 0px;
+}
+
+.action-block{
+  min-width: 80px;
+}
+
+.red_b {
+ background-color: #B30600;
+ border-color: #F2F7FA;
+ color: #F2F7FA;
+}
+
+.blue_b {
+ background-color: #2347BD;
+ border-color: #F2F7FA;
+ color: #F2F7FA;
+}
+
+.green_b {
+ background-color: #29AF34;
+ border-color: #F2F7FA;
+ color: #F2F7FA;
+}
+
+.dark_b {
+ background-color: #0D0208;
+ border-color: #F2F7FA;
+ color: #F2F7FA;
+}
+
+.btn:hover {
+  background-color: #F2F7FA;
+  border-color: #0D0208;
+  color: #0D0208;
 }

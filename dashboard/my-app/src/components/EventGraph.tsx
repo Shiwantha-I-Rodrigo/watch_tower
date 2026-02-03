@@ -35,10 +35,10 @@ export function EventGraphs() {
 export const EventTrend = ({ data }: Props) => (
   <ResponsiveContainer width="100%" height={250}>
     <LineChart data={data}>
-      <XAxis dataKey="time" />
-      <YAxis />
+      <XAxis dataKey="time" stroke="#04548c" tick={{ fill: "#04548c" }}/>
+      <YAxis stroke="#04548c" tick={{ fill: "#04548c" }}/>
       <Tooltip />
-      <Line type="monotone" dataKey="events" stroke="#00bcd4" strokeWidth={2} />
+      <Line type="monotone" dataKey="events" stroke="#04548c" strokeWidth={2} />
     </LineChart>
   </ResponsiveContainer>
 );

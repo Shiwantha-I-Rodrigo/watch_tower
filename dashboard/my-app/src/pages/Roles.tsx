@@ -148,11 +148,11 @@ function RoleManagement() {
         <div className="row content g-4">
 
             <div className="col-12 d-flex justify-content-start">
-                <h2>User Management</h2>
+                <h5>Role Management</h5>
             </div>
             <div className={selectedRole ? "col-md-12 col-lg-6" : "col-12"}>
                 <div className="card h-100">
-                    <h5 className="card-title card_title">System Users</h5>
+                    <h5 className="card-title card_title">Roles</h5>
                     <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
                         {/*TABLE*/}
@@ -169,11 +169,11 @@ function RoleManagement() {
                                     <tr key={role.id}>
                                         <td>{role.id}</td>
                                         <td>{role.name}</td>
-                                        <td>
-                                            <button onClick={(e) => handleModify(e,role)}>
+                                        <td className="action-block">
+                                            <button className="blue_b p-1" onClick={(e) => handleModify(e,role)}>
                                                 <i className="bi bi-pencil-square"></i>
                                             </button>
-                                            <button className="mx-2 bg-danger" onClick={() => handleDelete(role.id)}>
+                                            <button className="mx-2 red_b p-1" onClick={() => handleDelete(role.id)}>
                                                 <i className="bi bi-trash"></i>
                                             </button>
                                         </td>
@@ -184,16 +184,16 @@ function RoleManagement() {
                     </div>
                     <div className="card-body row justify-content-center">
                         <div className="col-3">
-                            <button type="button" className="btn btn-primary w-100" disabled={page === 0} onClick={() => handlePrev()}>Previous</button>
+                            <button type="button" className="btn blue_b w-100" disabled={page === 0} onClick={() => handlePrev()}>Previous</button>
                         </div>
                         <div className="col-3">
                             <button
-                                className="btn btn-success w-100"
+                                className="btn green_b w-100"
                                 onClick={() => setSelectedRole({ name: "" })}
-                            >Add User</button>
+                            >Add Role</button>
                         </div>
                         <div className="col-3">
-                            <button type="button" className="btn btn-primary w-100" disabled={!hasMore} onClick={() => handleNext()}>Next</button>
+                            <button type="button" className="btn blue_b w-100" disabled={!hasMore} onClick={() => handleNext()}>Next</button>
                         </div>
                     </div>
                 </div>
@@ -202,8 +202,8 @@ function RoleManagement() {
             {selectedRole && (<div className="col-md-12 col-lg-6">
                 <div className="card h-100">
 
-                    <h5 className="card-title card_title">{selectedRole.id ? "Modify User" : "Add New User"}</h5>
-                    <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
+                    <h5 className="card-title card_title">{selectedRole.id ? "Modify Role" : "Add New Role"}</h5>
+                    <img src="src/assets/banner_green.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
                         <form onSubmit={selectedRole.id ? handleUpdate : handleCreate}>
 
@@ -213,7 +213,7 @@ function RoleManagement() {
                                 </div>
                                 <div className="col-8">
                                     <input
-                                        className="rounded text-dark bg-light border border-2 border-dark"
+                                        className="rounded border border-2 border-dark text-light bg-dark"
                                         name="name"
                                         value={selectedRole.name}
                                         onChange={handleChange}
@@ -226,12 +226,12 @@ function RoleManagement() {
                                 <div className="col-6">
                                 </div>
                                 <div className="col-3">
-                                    <button type="submit" className="btn btn-success w-100">
+                                    <button type="submit" className="btn green_b w-100">
                                         {selectedRole.id ? "Save" : "Create"}
                                     </button>
                                 </div>
                                 <div className="col-3">
-                                    <button type="button" className="btn btn-primary w-100" onClick={() => setSelectedRole(null)}>Cancel</button>
+                                    <button type="button" className="btn blue_b w-100" onClick={() => setSelectedRole(null)}>Cancel</button>
                                 </div>
 
                             </div>

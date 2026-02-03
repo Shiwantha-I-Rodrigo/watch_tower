@@ -153,11 +153,11 @@ function AssetManagement() {
         <div className="row content g-4">
 
             <div className="col-12 d-flex justify-content-start">
-                <h2>User Management</h2>
+                <h5>Asset Management</h5>
             </div>
             <div className={selectedAsset ? "col-md-12 col-lg-6" : "col-12"}>
                 <div className="card h-100">
-                    <h5 className="card-title card_title">System Users</h5>
+                    <h5 className="card-title card_title">Assets</h5>
                     <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
                         {/*TABLE*/}
@@ -182,11 +182,11 @@ function AssetManagement() {
                                         <td>{asset.ip_address}</td>
                                         <td>{asset.hostname}</td>
                                         <td>{asset.environment}</td>
-                                        <td>
-                                            <button onClick={(e) => handleModify(e,asset)}>
+                                        <td className="action-block">
+                                            <button className="blue_b p-1" onClick={(e) => handleModify(e,asset)}>
                                                 <i className="bi bi-pencil-square"></i>
                                             </button>
-                                            <button className="mx-2 bg-danger" onClick={() => handleDelete(asset.id)}>
+                                            <button className="mx-2 red_b p-1" onClick={() => handleDelete(asset.id)}>
                                                 <i className="bi bi-trash"></i>
                                             </button>
                                         </td>
@@ -197,16 +197,16 @@ function AssetManagement() {
                     </div>
                     <div className="card-body row justify-content-center">
                         <div className="col-3">
-                            <button type="button" className="btn btn-primary w-100" disabled={page === 0} onClick={() => handlePrev()}>Previous</button>
+                            <button type="button" className="btn blue_b w-100" disabled={page === 0} onClick={() => handlePrev()}>Previous</button>
                         </div>
                         <div className="col-3">
                             <button
-                                className="btn btn-success w-100"
+                                className="btn green_b w-100"
                                 onClick={() => setSelectedAsset({ name: "", asset_type: "", ip_address: "", hostname: "", environment: "" })}
-                            >Add User</button>
+                            >Add Asset</button>
                         </div>
                         <div className="col-3">
-                            <button type="button" className="btn btn-primary w-100" disabled={!hasMore} onClick={() => handleNext()}>Next</button>
+                            <button type="button" className="btn blue_b w-100" disabled={!hasMore} onClick={() => handleNext()}>Next</button>
                         </div>
                     </div>
                 </div>
@@ -215,8 +215,8 @@ function AssetManagement() {
             {selectedAsset && (<div className="col-md-12 col-lg-6">
                 <div className="card h-100">
 
-                    <h5 className="card-title card_title">{selectedAsset.id ? "Modify User" : "Add New User"}</h5>
-                    <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
+                    <h5 className="card-title card_title">{selectedAsset.id ? "Modify Asset" : "Add New Asset"}</h5>
+                    <img src="src/assets/banner_green.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
                         <form onSubmit={selectedAsset.id ? handleUpdate : handleCreate}>
 
@@ -226,7 +226,7 @@ function AssetManagement() {
                                 </div>
                                 <div className="col-8">
                                     <input
-                                        className="rounded text-dark bg-light border border-2 border-dark"
+                                        className="rounded border border-2 border-dark text-light bg-dark"
                                         name="name"
                                         value={selectedAsset.name}
                                         onChange={handleChange}
@@ -241,7 +241,7 @@ function AssetManagement() {
                                 </div>
                                 <div className="col-8">
                                     <input
-                                        className="rounded text-dark bg-light border border-2 border-dark"
+                                        className="rounded border border-2 border-dark text-light bg-dark"
                                         name="asset_type"
                                         value={selectedAsset.asset_type}
                                         onChange={handleChange}
@@ -256,7 +256,7 @@ function AssetManagement() {
                                 </div>
                                 <div className="col-8">
                                     <input
-                                        className="rounded text-dark bg-light border border-2 border-dark"
+                                        className="rounded border border-2 border-dark text-light bg-dark"
                                         name="ip_address"
                                         value={selectedAsset.ip_address}
                                         onChange={handleChange}
@@ -271,7 +271,7 @@ function AssetManagement() {
                                 </div>
                                 <div className="col-8">
                                     <input
-                                        className="rounded text-dark bg-light border border-2 border-dark"
+                                        className="rounded border border-2 border-dark text-light bg-dark"
                                         name="hostname"
                                         value={selectedAsset.hostname}
                                         onChange={handleChange}
@@ -286,7 +286,7 @@ function AssetManagement() {
                                 </div>
                                 <div className="col-8">
                                     <input
-                                        className="rounded text-dark bg-light border border-2 border-dark"
+                                        className="rounded border border-2 border-dark text-light bg-dark"
                                         name="environment"
                                         value={selectedAsset.environment}
                                         onChange={handleChange}
@@ -299,12 +299,12 @@ function AssetManagement() {
                                 <div className="col-6">
                                 </div>
                                 <div className="col-3">
-                                    <button type="submit" className="btn btn-success w-100">
+                                    <button type="submit" className="btn green_b w-100">
                                         {selectedAsset.id ? "Save" : "Create"}
                                     </button>
                                 </div>
                                 <div className="col-3">
-                                    <button type="button" className="btn btn-primary w-100" onClick={() => setSelectedAsset(null)}>Cancel</button>
+                                    <button type="button" className="btn blue_b w-100" onClick={() => setSelectedAsset(null)}>Cancel</button>
                                 </div>
 
                             </div>

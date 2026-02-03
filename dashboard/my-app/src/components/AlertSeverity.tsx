@@ -1,4 +1,4 @@
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend, Label } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 
 export interface AlertSeverityCountInterface {
@@ -34,18 +34,19 @@ export function AlertPie() {
   return <AlertSeverityPie data={severities} />;
 }
 
-const COLORS = ["#4caf50", "#ff9800", "#f44336", "#9c27b0"];
+const COLORS = ["#dc2626", "#d97706", "#04548c", "#F2F7FA"];
 
 export const AlertSeverityPie = ({ data }: { data: AlertSeverityCountInterface[] }) => (
   <ResponsiveContainer width="100%" height={250}>
     <PieChart>
-      <Pie data={data} dataKey="value" nameKey="name" outerRadius={90}>
+      <Label value="Alert Severity" position="top" fill="#F2F7FA" style={{ fontWeight: 600 }}/>
+      <Pie data={data} dataKey="value" nameKey="name" outerRadius={90} stroke="none">
         {data.map((_, index) => (
-          <Cell key={index} fill={COLORS[index]} />
+          <Cell key={index} fill={COLORS[index]}/>
         ))}
       </Pie>
       <Tooltip />
-      <Legend layout="vertical" align="right" verticalAlign="middle"/>
+      <Legend layout="vertical" align="right" verticalAlign="middle" formatter={(value, entry: any) => {const { payload } = entry;return `${value}: ${payload.value}`;}}/>
     </PieChart>
   </ResponsiveContainer>
 );

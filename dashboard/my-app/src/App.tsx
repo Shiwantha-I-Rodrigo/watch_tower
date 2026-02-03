@@ -16,33 +16,22 @@ function App() {
   return (
     <BrowserRouter>
 
-        <div className="sidebar">
-            <h2>Admin</h2>
+        <div className="sidebar pt-5">
+            <h2 className='pb-3'><b>WATCH TOWER</b></h2>
             <img src="src/assets/profile.png" className="rounded-circle profile"></img>
-            <a href="#">Home</a>
-            <a href="#">Users</a>
-            <a href="#">Roles</a>
-            <a href="#">Assets</a>
-            <a href="#">Events</a>
-            <a href="#">Logs</a>
-            <a href="#">Rules</a>
-            <a href="#">Alerts</a>
-            <a href="#">Incidents</a>
-            <a href="#">Audits</a>
+            <div className="p-4 text-start">
+            <a href="/" className="pb-3"><i className="bi bi-speedometer"></i>&nbsp;&nbsp;Dashboard</a>
+            <a href="/users" className="pb-3"><i className="bi bi-person-circle"></i>&nbsp;&nbsp;Users</a>
+            <a href="/roles" className="pb-3"><i className="bi bi-patch-question-fill"></i>&nbsp;&nbsp;Roles</a>
+            <a href="/assets" className="pb-3"><i className="bi bi-coin"></i>&nbsp;&nbsp;Assets</a>
+            <a href="/events" className="pb-3"><i className="bi bi-heart-pulse-fill"></i>&nbsp;&nbsp;Events</a>
+            <a href="/logs" className="pb-3"><i className="bi bi-browser-safari"></i>&nbsp;&nbsp;Logs</a>
+            <a href="/rules" className="pb-3"><i className="bi bi-brilliance"></i>&nbsp;&nbsp;Rules</a>
+            <a href="/alerts" className="pb-3"><i className="bi bi-bullseye"></i>&nbsp;&nbsp;Alerts</a>
+            <a href="/incidents" className="pb-3"><i className="bi bi-exclamation-circle"></i>&nbsp;&nbsp;Incidents</a>
+            <a href="/audits" className="pb-3"><i className="bi bi-check-circle-fill"></i>&nbsp;&nbsp;Audits</a>
+            </div>
         </div>
-
-        <nav className="footer">
-            <Link to="/">Home</Link> |{" "}
-            <Link to="/users">Users</Link> |{" "}
-            <Link to="/roles">Roles</Link> |{" "}
-            <Link to="/assets">Assets</Link> |{" "}
-            <Link to="/events">Events</Link> |{" "}
-            <Link to="/logs">Logs</Link> |{" "}
-            <Link to="/rules">Rules</Link> |{" "}
-            <Link to="/alerts">Alerts</Link> |{" "}
-            <Link to="/incidents">Incidents</Link> |{" "}
-            <Link to="/audits">Audits</Link>
-        </nav>
 
         <Routes>
             <Route path="/" element={<Home />} />

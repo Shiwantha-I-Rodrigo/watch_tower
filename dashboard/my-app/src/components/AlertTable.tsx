@@ -68,6 +68,21 @@ export function AlertTable() {
   return <AlertsTable alerts={alerts} />;
 }
 
+const severityRowStyle = (severity: string): React.CSSProperties => {
+  switch (severity.toLowerCase()) {
+    case "critical":
+      return { color: "#b91c1c", fontWeight: "600" };
+    case "high":
+      return { color: "#dc2626" };
+    case "medium":
+      return { color: "#d97706" };
+    case "low":
+      return { color: "#F2F7FA" };
+    default:
+      return { color: "#F2F7FA" };
+  }
+};
+
 export const AlertsTable = ({ alerts }: { alerts: Alert[] }) => (
   <table style={{ width: "100%", borderCollapse: "collapse" }}>
     <thead>
@@ -81,7 +96,7 @@ export const AlertsTable = ({ alerts }: { alerts: Alert[] }) => (
     </thead>
     <tbody>
       {alerts.map(alert => (
-        <tr key={alert.id}>
+        <tr key={alert.id} style={severityRowStyle(alert.severity)}>
           <td>{alert.created_at}</td>
           <td>{alert.severity}</td>
           <td>{alert.status}</td>

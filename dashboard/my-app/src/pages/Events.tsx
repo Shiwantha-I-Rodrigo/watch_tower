@@ -173,11 +173,11 @@ function EventManagement() {
         <div className="row content g-4">
 
             <div className="col-12 d-flex justify-content-start">
-                <h2>User Management</h2>
+                <h5>Event Management</h5>
             </div>
             <div className={selectedEvent ? "col-md-12 col-lg-6" : "col-12"}>
                 <div className="card h-100">
-                    <h5 className="card-title card_title">System Users</h5>
+                    <h5 className="card-title card_title">Events</h5>
                     <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
                         {/*TABLE*/}
@@ -200,11 +200,11 @@ function EventManagement() {
                                         <td>{event.severity}</td>
                                         <td>{event.message}</td>
                                         <td>{event.asset.id}</td>
-                                        <td>
-                                            <button onClick={(e) => handleModify(e,event)}>
+                                        <td className="action-block">
+                                            <button className="blue_b p-1" onClick={(e) => handleModify(e,event)}>
                                                 <i className="bi bi-pencil-square"></i>
                                             </button>
-                                            <button className="mx-2 bg-danger" onClick={() => handleDelete(event.id)}>
+                                            <button className="mx-2 red_b p-1" onClick={() => handleDelete(event.id)}>
                                                 <i className="bi bi-trash"></i>
                                             </button>
                                         </td>
@@ -215,16 +215,16 @@ function EventManagement() {
                     </div>
                     <div className="card-body row justify-content-center">
                         <div className="col-3">
-                            <button type="button" className="btn btn-primary w-100" disabled={page === 0} onClick={() => handlePrev()}>Previous</button>
+                            <button type="button" className="btn blue_b w-100" disabled={page === 0} onClick={() => handlePrev()}>Previous</button>
                         </div>
                         <div className="col-3">
                             <button
-                                className="btn btn-success w-100"
+                                className="btn green_b w-100"
                                 onClick={() => setSelectedEvent({ event_type: "", severity: "", message: "", asset_id: null,})}
-                            >Add User</button>
+                            >Add Event</button>
                         </div>
                         <div className="col-3">
-                            <button type="button" className="btn btn-primary w-100" disabled={!hasMore} onClick={() => handleNext()}>Next</button>
+                            <button type="button" className="btn blue_b w-100" disabled={!hasMore} onClick={() => handleNext()}>Next</button>
                         </div>
                     </div>
                 </div>
@@ -233,8 +233,8 @@ function EventManagement() {
             {selectedEvent && (<div className="col-md-12 col-lg-6">
                 <div className="card h-100">
 
-                    <h5 className="card-title card_title">{selectedEvent.id ? "Modify User" : "Add New User"}</h5>
-                    <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
+                    <h5 className="card-title card_title">{selectedEvent.id ? "Modify Event" : "Add New Event"}</h5>
+                    <img src="src/assets/banner_red.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
                         <form onSubmit={selectedEvent.id ? handleUpdate : handleCreate}>
 
@@ -244,7 +244,7 @@ function EventManagement() {
                                 </div>
                                 <div className="col-8">
                                     <input
-                                        className="rounded text-dark bg-light border border-2 border-dark"
+                                        className="rounded border border-2 border-dark text-light bg-dark"
                                         name="event_type"
                                         value={selectedEvent.event_type}
                                         onChange={handleChange}
@@ -259,7 +259,7 @@ function EventManagement() {
                                 </div>
                                 <div className="col-8">
                                     <input
-                                        className="rounded text-dark bg-light border border-2 border-dark"
+                                        className="rounded border border-2 border-dark text-light bg-dark"
                                         name="severity"
                                         value={selectedEvent.severity}
                                         onChange={handleChange}
@@ -274,7 +274,7 @@ function EventManagement() {
                                 </div>
                                 <div className="col-8">
                                     <input
-                                        className="rounded text-dark bg-light border border-2 border-dark"
+                                        className="rounded border border-2 border-dark text-light bg-dark"
                                         name="message"
                                         value={selectedEvent.message}
                                         onChange={handleChange}
@@ -289,7 +289,7 @@ function EventManagement() {
                                 </div>
                                 <div className="col-8">
                                     <input
-                                        className="rounded text-dark bg-light border border-2 border-dark"
+                                        className="rounded border border-2 border-dark text-light bg-dark"
                                         name="asset_id"
                                         value={selectedEvent.asset_id ?? ""}
                                         onChange={handleChange}
@@ -302,12 +302,12 @@ function EventManagement() {
                                 <div className="col-6">
                                 </div>
                                 <div className="col-3">
-                                    <button type="submit" className="btn btn-success w-100">
+                                    <button type="submit" className="btn green_b w-100">
                                         {selectedEvent.id ? "Save" : "Create"}
                                     </button>
                                 </div>
                                 <div className="col-3">
-                                    <button type="button" className="btn btn-primary w-100" onClick={() => setSelectedEvent(null)}>Cancel</button>
+                                    <button type="button" className="btn blue_b w-100" onClick={() => setSelectedEvent(null)}>Cancel</button>
                                 </div>
 
                             </div>

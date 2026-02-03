@@ -31,10 +31,10 @@ export function AssetChart() {
 export const TopSources = ({ data }: { data: SourceCount[] }) => (
   <ResponsiveContainer width="100%" height={250}>
     <BarChart data={data}>
-      <XAxis dataKey="source" />
-      <YAxis />
+      <XAxis dataKey="source" stroke="#04548c" tick={{ fill: "#04548c" }}/>
+      <YAxis stroke="#04548c" tick={{ fill: "#04548c" }}/>
       <Tooltip />
-      <Bar dataKey="count" fill="#2196f3" />
+      <Bar dataKey="count" fill="#021024" stroke="#04548c" strokeWidth={2}/>
     </BarChart>
   </ResponsiveContainer>
 );

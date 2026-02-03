@@ -218,12 +218,12 @@ function AlertManagement() {
     return (
         <div className="row content g-4">
             <div className="col-12 d-flex justify-content-start">
-                <h2>User Management</h2>
+                <h5>Alert Management</h5>
             </div>
 
             <div className={selectedAlert ? "col-md-12 col-lg-6" : "col-12"}>
                 <div className="card h-100">
-                    <h5 className="card-title card_title">System Users</h5>
+                    <h5 className="card-title card_title">Alerts</h5>
                     <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
                         {/*TABLE*/}
@@ -270,9 +270,13 @@ function AlertManagement() {
                                                 <span className="text-muted">N/A</span>
                                             )}
                                         </td>
-                                        <td>
-                                            <button onClick={(e) => handleModify(e, alert)}><i className="bi bi-pencil-square"></i></button>
-                                            <button className="mx-2 bg-danger" onClick={() => handleDelete(alert.id)}><i className="bi bi-trash"></i></button>
+                                        <td className="action-block">
+                                            <button className="blue_b p-1" onClick={(e) => handleModify(e,alert)}>
+                                                <i className="bi bi-pencil-square"></i>
+                                            </button>
+                                            <button className="mx-2 red_b p-1" onClick={() => handleDelete(alert.id)}>
+                                                <i className="bi bi-trash"></i>
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}
@@ -281,13 +285,13 @@ function AlertManagement() {
                     </div>
                     <div className="card-body row justify-content-center">
                         <div className="col-3">
-                            <button type="button" className="btn btn-primary w-100" disabled={page === 0} onClick={() => handlePrev()}>Previous</button>
+                            <button type="button" className="btn blue_b w-100" disabled={page === 0} onClick={() => handlePrev()}>Previous</button>
                         </div>
                         <div className="col-3">
-                            <button className="btn btn-success w-100" onClick={(e) => handleNew(e)}>Add User</button>
+                            <button className="btn green_b w-100" onClick={(e) => handleNew(e)}>Add Alert</button>
                         </div>
                         <div className="col-3">
-                            <button type="button" className="btn btn-primary w-100" disabled={!hasMore} onClick={() => handleNext()}>Next</button>
+                            <button type="button" className="btn blue_b w-100" disabled={!hasMore} onClick={() => handleNext()}>Next</button>
                         </div>
                     </div>
                 </div>
@@ -296,8 +300,8 @@ function AlertManagement() {
             {selectedAlert && (
                 <div className="col-md-12 col-lg-6">
                     <div className="card h-100">
-                        <h5 className="card-title card_title">{selectedAlert.id ? "Modify Alert" : "Add New Alert"}</h5>
-                        <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid" />
+                        <h5 className="card-title card_title">{selectedAlert.id ? "MODIFY ALERT" : "ADD NEW ALERT"}</h5>
+                        <img src="src/assets/banner_red.png" alt="Card image" className="img-fluid" />
                         <div className="card-body">
 
                             <form onSubmit={selectedAlert.id ? handleUpdate : handleCreate}>
@@ -308,7 +312,7 @@ function AlertManagement() {
                                     </div>
                                     <div className="col-8">
                                         <select
-                                        className="rounded text-dark bg-light border border-2 border-dark w-100"
+                                        className="rounded border border-2 border-dark text-light bg-dark w-100"
                                         name="severity"
                                         value={selectedAlert.severity}
                                         onChange={handleChange}
@@ -327,7 +331,7 @@ function AlertManagement() {
                                     </div>
                                     <div className="col-8">
                                         <select
-                                        className="rounded text-dark bg-light border border-2 border-dark w-100"
+                                        className="rounded border border-2 border-dark text-light bg-dark w-100"
                                         name="status"
                                         value={selectedAlert.status}
                                         onChange={handleChange}
@@ -347,7 +351,7 @@ function AlertManagement() {
                                     <div className="col-8">
 
                                         <input
-                                            className="rounded text-dark bg-light border border-2 border-dark w-100"
+                                            className="rounded border border-2 border-dark text-light bg-dark w-100"
                                             name="event_id"
                                             value={selectedAlert?.event_id ?? ""}
                                             type="number"
@@ -359,7 +363,7 @@ function AlertManagement() {
 
                                         {selectedAlert.id && (
                                             <textarea
-                                                className="rounded text-dark bg-light border border-2 border-dark w-100"
+                                                className="rounded border border-2 border-dark text-light bg-dark w-100"
                                                 name="event"
                                                 rows={10}
                                                 value={selectedEvent ? `ID: ${selectedEvent.id}\nName: ${selectedEvent.event_type}\nSeverity: ${selectedEvent.severity}\nMessage: ${selectedEvent.message}\nTimeStamp: ${selectedEvent.timestamp}\nHost: ${selectedEvent.asset.name}\n${selectedEvent.asset.ip_address}` : "N/A"}
@@ -376,7 +380,7 @@ function AlertManagement() {
                                     <div className="col-8">
 
                                         <input
-                                            className="rounded text-dark bg-light border border-2 border-dark w-100"
+                                            className="rounded border border-2 border-dark text-light bg-dark w-100"
                                             name="rule_id"
                                             value={selectedAlert?.rule_id ?? ""}
                                             type="number"
@@ -388,7 +392,7 @@ function AlertManagement() {
                                     
                                         {selectedAlert.id && (
                                             <textarea
-                                            className="rounded text-dark bg-light border border-2 border-dark w-100"
+                                            className="rounded border border-2 border-dark text-light bg-dark w-100"
                                             readOnly
                                             name="rule"
                                             rows={10}
@@ -402,10 +406,10 @@ function AlertManagement() {
                                     <div className="col-6">
                                     </div>
                                     <div className="col-3">
-                                        <button type="submit" className="btn btn-success w-100">{selectedAlert.id ? "Save" : "Create"}</button>
+                                        <button type="submit" className="btn green_b w-100">{selectedAlert.id ? "Save" : "Create"}</button>
                                     </div>
                                     <div className="col-3">
-                                        <button type="button" className="btn btn-primary w-100" onClick={() => setSelectedAlert(null)}>Cancel</button>
+                                        <button type="button" className="btn blue_b w-100" onClick={() => setSelectedAlert(null)}>Cancel</button>
                                     </div>
                                 </div>
 

@@ -246,11 +246,11 @@ function IncidentManagement() {
         <div className="row content g-4">
 
             <div className="col-12 d-flex justify-content-start">
-                <h2>User Management</h2>
+                <h5>Incident Management</h5>
             </div>
             <div className={selectedIncident ? "col-md-12 col-lg-6" : "col-12"}>
                 <div className="card h-100">
-                    <h5 className="card-title card_title">System Users</h5>
+                    <h5 className="card-title card_title">Incidents</h5>
                     <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
                         {/*TABLE*/}
@@ -304,14 +304,11 @@ function IncidentManagement() {
                                             )}
                                         </td>
 
-                                        <td>
-                                            <button onClick={(e) => handleModify(e,incident)}>
+                                        <td className="action-block">
+                                            <button className="blue_b p-1" onClick={(e) => handleModify(e,incident)}>
                                                 <i className="bi bi-pencil-square"></i>
                                             </button>
-                                            <button
-                                                className="mx-2 bg-danger"
-                                                onClick={() => handleDelete(incident.id)}
-                                            >
+                                            <button className="mx-2 red_b p-1" onClick={() => handleDelete(incident.id)}>
                                                 <i className="bi bi-trash"></i>
                                             </button>
                                         </td>
@@ -323,16 +320,16 @@ function IncidentManagement() {
                     </div>
                     <div className="card-body row justify-content-center">
                         <div className="col-3">
-                            <button type="button" className="btn btn-primary w-100" disabled={page === 0} onClick={() => handlePrev()}>Previous</button>
+                            <button type="button" className="btn blue_b w-100" disabled={page === 0} onClick={() => handlePrev()}>Previous</button>
                         </div>
                         <div className="col-3">
                             <button
-                                className="btn btn-success w-100"
+                                className="btn green_b w-100"
                                 onClick={() => handleNewIncident()}
-                            >Add User</button>
+                            >Add Incident</button>
                         </div>
                         <div className="col-3">
-                            <button type="button" className="btn btn-primary w-100" disabled={!hasMore} onClick={() => handleNext()}>Next</button>
+                            <button type="button" className="btn blue_b w-100" disabled={!hasMore} onClick={() => handleNext()}>Next</button>
                         </div>
                     </div>
                 </div>
@@ -344,7 +341,7 @@ function IncidentManagement() {
                         <h5 className="card-title card_title">
                             {selectedIncident.id ? "Modify Incident" : "Add New Incident"}
                         </h5>
-                        <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid" />
+                        <img src="src/assets/banner_green.png" alt="Card image" className="img-fluid" />
 
                         <div className="card-body">
                             <form onSubmit={selectedIncident.id ? handleUpdate : handleCreate} >
@@ -356,7 +353,7 @@ function IncidentManagement() {
                                     </div>
                                     <div className="col-8">
                                         <input
-                                            className="rounded text-dark bg-light border border-2 border-dark w-100"
+                                            className="rounded border border-2 border-dark text-light bg-dark w-100"
                                             name="title"
                                             value={selectedIncident.title}
                                             onChange={handleIncidentChange}
@@ -372,7 +369,7 @@ function IncidentManagement() {
                                     </div>
                                     <div className="col-8">
                                         <textarea
-                                            className="rounded text-dark bg-light border border-2 border-dark w-100"
+                                            className="rounded border border-2 border-dark text-light bg-dark w-100"
                                             name="description"
                                             rows={4}
                                             value={selectedIncident.description}
@@ -389,7 +386,7 @@ function IncidentManagement() {
                                     </div>
                                     <div className="col-8 d-flex">
                                         <select
-                                            className="rounded text-dark bg-light border border-2 border-dark"
+                                            className="rounded border border-2 border-dark text-light bg-dark"
                                             name="severity"
                                             value={selectedIncident.severity}
                                             onChange={handleIncidentChange}
@@ -411,7 +408,7 @@ function IncidentManagement() {
                                     </div>
                                     <div className="col-8 d-flex">
                                         <select
-                                            className="rounded text-dark bg-light border border-2 border-dark"
+                                            className="rounded border border-2 border-dark text-light bg-dark"
                                             name="status"
                                             value={selectedIncident.status}
                                             onChange={handleIncidentChange}
@@ -437,7 +434,7 @@ function IncidentManagement() {
                                             <div className="col-auto d-flex align-items-center">
                                             <input
                                                 type="number"
-                                                className="form-control alert-id-input m-0 bg-light border border-2 border-dark"
+                                                className="form-control alert-id-input m-0 border border-2 border-dark text-light bg-dark"
                                                 value={id}
                                                 onChange={e => handleAlertIdChange(index, e.target.value)}
                                             />
@@ -476,14 +473,14 @@ function IncidentManagement() {
                                 <div className="row mt-3">
                                     <div className="col-6"></div>
                                     <div className="col-3">
-                                        <button type="submit" className="btn btn-success w-100">
+                                        <button type="submit" className="btn green_b w-100">
                                             {selectedIncident.id ? "Save" : "Create"}
                                         </button>
                                     </div>
                                     <div className="col-3">
                                         <button
                                             type="button"
-                                            className="btn btn-primary w-100"
+                                            className="btn blue_b w-100"
                                             onClick={() => setSelectedIncident(null)}
                                         >
                                             Cancel

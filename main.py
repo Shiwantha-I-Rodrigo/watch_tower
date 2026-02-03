@@ -24,6 +24,7 @@ from models_py import (
     EventIndicatorBase, EventIndicatorRead,
     SeverityCount, EventTrendPoint, SourceCount
     )
+import re, operator
 
 
 app = FastAPI()
@@ -296,19 +297,299 @@ def delete_event(event_id: int, db: Session = Depends(get_db)):
     db.commit()
     return None
 
-
 # Logs --------------------------------------------------------------------------------------------------------------------
-@app.post("/rawlogs/", response_model=RawLogRead)
-def create_rawlog(rawlog_in: RawLogCreate, db: Session = Depends(get_db)):
-    event = db.query(Event).get(rawlog_in.event_id)
-    if not event:
+
+# RAWLOG Format
+# {
+#   "timestamp": "",
+#   "device": { "vendor": "", "hostname": "" },
+#   "severity": 0,
+#   "message": "",
+#   "src": { "ip": "", "port": 0 },
+#   "dst": { "ip": "", "port": 0 },
+#   "raw": ""
+# }
+
+SYSLOG_RE = re.compile(
+    r"<(?P<pri>\d+)>"
+    r"(?P<ts>\w+\s+\d+\s+\d+:\d+:\d+)\s+"
+    r"(?P<host>\S+)\s+"
+    r"%(?P<facility>\w+)-(?P<severity>\d+)-(?P<mnemonic>\w+):\s+"
+    r"(?P<body>.*)"
+)
+
+def parse_syslog_header(raw: str):
+    m = SYSLOG_RE.match(raw)
+    if not m:
+        return {}
+
+    d = m.groupdict()
+
+    return {
+        "timestamp": datetime.strptime(d["ts"], "%b %d %H:%M:%S"),
+        "hostname": d["host"],
+        "severity": int(d["severity"]),
+        "facility": d["facility"],
+        "mnemonic": d["mnemonic"],
+        "body": d["body"]
+    }
+
+ACL_RE = re.compile(
+    r"(?P<action>permitted|denied)\s+"
+    r"(?P<proto>\w+)\s+"
+    r"(?P<src_ip>\d+\.\d+\.\d+\.\d+)\((?P<src_port>\d+)\)\s+->\s+"
+    r"(?P<dst_ip>\d+\.\d+\.\d+\.\d+)\((?P<dst_port>\d+)\)"
+)
+
+def parse_acl(body: str):
+    m = ACL_RE.search(body)
+    if not m:
+        return {}
+
+    d = m.groupdict()
+    return {
+        "log_type": f"acl_{d['action']}",
+        "src": {
+            "ip": d["src_ip"],
+            "port": int(d["src_port"])
+        },
+        "dst": {
+            "ip": d["dst_ip"],
+            "port": int(d["dst_port"])
+        }
+    }
+
+def classify_log(mnemonic: str):
+    if mnemonic.startswith("IPACCESSLOG"):
+        return "acl"
+    if mnemonic.startswith("SEC_LOGIN"):
+        return "auth"
+    if mnemonic in ("LINK", "LINEPROTO"):
+        return "interface"
+    if mnemonic == "CONFIG_I":
+        return "config"
+    return "system"
+
+def auto_event(event_in):
+    asset = db.query(Asset).get(event_in.asset_id)
+    if not asset:
         raise HTTPException(status_code=404, detail="Event not found")
-    
-    rawlog = RawLog(**rawlog_in.dict())
+    event = Event(**event_in.dict())
+    db.add(event)
+    db.commit()
+    return event
+
+def auto_alert(alert_in):
+    rule = db.query(Rule).get(alert_in.rule_id)
+    event = db.query(Event).get(alert_in.event_id)
+    if not rule or not event:
+        raise HTTPException(status_code=404, detail="Rule or Event not found")
+    alert = Alert(**alert_in.dict())
+    db.add(alert)
+    db.commit()
+    return alert
+
+def auto_incident(inc_in):
+    incident = Incident(
+        title=inc_in.title,
+        description=inc_in.description,
+        status=inc_in.status,
+        severity=inc_in.severity,
+    )
+    if inc_in.alert_ids:
+        alerts = (
+            db.query(Alert)
+            .filter(Alert.id.in_(inc_in.alert_ids))
+            .all()
+        )
+        incident.alerts.extend(alerts)
+    db.add(incident)
+    db.commit()
+
+from datetime import timedelta
+import operator
+
+OPERATORS = {
+    "eq": operator.eq,
+    "neq": operator.ne,
+    "lt": operator.lt,
+    "lte": operator.le,
+    "gt": operator.gt,
+    "gte": operator.ge,
+    "contains": lambda a, b: b in a if a else False,
+    "startswith": lambda a, b: a.startswith(b) if a else False,
+    "endswith": lambda a, b: a.endswith(b) if a else False,
+}
+
+def evaluate_condition(
+    condition: RuleCondition,
+    context: dict,
+    db,
+    asset_id: int,
+) -> bool:
+    field = condition.field
+    operator_name = condition.operator
+    raw_value = condition.value
+
+    # --- THRESHOLD CONDITION ---
+    # value format: "<count>|<seconds>"
+    if operator_name == "count_gte":
+        if field not in context or not context[field]:
+            return False
+
+        try:
+            threshold, seconds = map(int, raw_value.split("|"))
+        except ValueError:
+            return False
+
+        window_start = context["timestamp"] - timedelta(seconds=seconds)
+
+        count = (
+            db.query(Event)
+            .filter(
+                Event.asset_id == asset_id,
+                Event.event_type == context["event_type"],
+                Event.created_at >= window_start,
+                Event.message.contains(str(context[field])),
+            )
+            .count()
+        )
+
+        return count >= threshold
+
+    # --- SIMPLE FIELD COMPARISON ---
+    field_value = context.get(field)
+    if field_value is None:
+        return False
+
+    op = OPERATORS.get(operator_name)
+    if not op:
+        return False
+
+    # type coercion
+    if isinstance(field_value, int):
+        try:
+            raw_value = int(raw_value)
+        except ValueError:
+            return False
+
+    return op(field_value, raw_value)
+
+
+def evaluate_rule(rule: Rule, context: dict) -> bool:
+    if not rule.enabled:
+        return False
+
+    for condition in rule.conditions:
+        if not evaluate_condition(condition, context):
+            return False
+
+    return True
+
+def analyze_payload(payload: dict):
+    raw = payload.get("message", "")
+
+    header = parse_syslog_header(raw)
+    if not header:
+        return {"raw": raw}
+
+    log_type = classify_log(header["mnemonic"])
+    src = {"ip": None}
+    dst = {"ip": None}
+
+    # --- AUTH FAILURE NORMALIZATION ---
+    if log_type == "auth":
+        m = AUTH_FAIL_RE.search(header["body"])
+        if m:
+            src["ip"] = m.group("src_ip")
+            log_type = "auth_failed"
+
+    asset = (
+        db.query(Asset)
+        .filter(Asset.hostname == header["hostname"])
+        .first()
+    )
+    if not asset:
+        return {"raw": raw}
+
+    # --- CREATE EVENT ---
+    event = auto_event({
+        "event_type": log_type,
+        "severity": header["severity"],
+        "message": header["body"],
+        "asset_id": asset.id,
+    })
+
+    # --- BUILD RULE CONTEXT ---
+    context = {
+        "event_type": log_type,
+        "severity": header["severity"],
+        "hostname": header["hostname"],
+        "src_ip": src["ip"],
+        "dst_ip": dst["ip"],
+        "timestamp": header["timestamp"],
+        "message": header["body"],
+    }
+
+    # --- RULE EVALUATION ---
+    rules = (
+        db.query(Rule)
+        .filter(Rule.enabled == True)
+        .options(selectinload(Rule.conditions))
+        .all()
+    )
+
+    for rule in rules:
+        matched = True
+
+        for condition in rule.conditions:
+            if not evaluate_condition(
+                condition=condition,
+                context=context,
+                db=db,
+                asset_id=asset.id,
+            ):
+                matched = False
+                break
+
+        if not matched:
+            continue
+
+        alert = auto_alert({
+            "severity": rule.severity,
+            "status": "open",
+            "rule_id": rule.id,
+            "event_id": event.id,
+        })
+
+        auto_incident({
+            "title": rule.name,
+            "description": rule.description,
+            "status": "open",
+            "severity": rule.severity,
+            "alert_ids": [alert.id],
+        })
+
+    return {
+        "timestamp": header["timestamp"].isoformat(),
+        "device": {
+            "vendor": "Cisco",
+            "hostname": header["hostname"],
+        },
+        "severity": header["severity"],
+        "log_type": log_type,
+        "src": src,
+        "dst": dst,
+        "raw": raw,
+    }
+
+@app.post("/rawlogs/", status_code=201)
+async def rawlogs(payload: dict, db: Session = Depends(get_db)):
+    analysis = analyze_payload(payload)
+    rawlog = RawLog(raw_payload=analysis, event_id=1)
     db.add(rawlog)
     db.commit()
-    db.refresh(rawlog)
-    return rawlog
+    return {"status": "ok"}
 
 @app.get("/rawlogs/", response_model=List[RawLogRead])
 def get_rawlogs(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
