@@ -8,7 +8,7 @@ function Home() {
     return (
         <div className="row content g-2">
             <div className="col-12 d-flex justify-content-start">
-                <h5>Past ◀ 24 ▶ Hours</h5>
+                <h5>Security Posture : Past ◀ 24 ▶ Hours</h5>
             </div>
             <div className="col-md-12 col-lg-6">
                 <div className="card h-100">
@@ -21,7 +21,7 @@ function Home() {
             </div>
             <div className="col-md-12 col-lg-6">
                 <div className="card h-100">
-                    <h5 className="card-title card_title">Asset Activity</h5>
+                    <h5 className="card-title card_title">Active Assets</h5>
                     <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
                         <AssetChart />

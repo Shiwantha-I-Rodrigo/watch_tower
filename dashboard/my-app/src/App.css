@@ -53,6 +53,10 @@ table, select, input, h1, h2, h3, p, a  {
     width: 70%;
 }
 
+.logo {
+    width: 95%;
+}
+
 .content {
     display: flex;
     margin-top: 1vh;

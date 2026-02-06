@@ -31,6 +31,7 @@ function App() {
             <a href="/incidents" className="pb-3"><i className="bi bi-exclamation-circle"></i>&nbsp;&nbsp;Incidents</a>
             <a href="/audits" className="pb-3"><i className="bi bi-check-circle-fill"></i>&nbsp;&nbsp;Audits</a>
             </div>
+            <img src="src/assets/logo.png" className="rounded-circle logo"></img>
         </div>
 
         <Routes>

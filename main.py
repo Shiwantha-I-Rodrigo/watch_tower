@@ -3,9 +3,9 @@
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, HTTPException, Depends, Path
 from sqlalchemy import create_engine, event, func
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker, Session, joinedload
 from typing import List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from models_db import Base, User, Role, UserRole, Asset, Event, RawLog, Rule, RuleCondition, Alert, Incident, AuditLog
 from models_py import ( 
     UserCreate, UserRead, UserUpdate,
@@ -299,87 +299,154 @@ def delete_event(event_id: int, db: Session = Depends(get_db)):
 
 # Logs --------------------------------------------------------------------------------------------------------------------
 
-# RAWLOG Format
-# {
-#   "timestamp": "",
-#   "device": { "vendor": "", "hostname": "" },
-#   "severity": 0,
-#   "message": "",
-#   "src": { "ip": "", "port": 0 },
-#   "dst": { "ip": "", "port": 0 },
-#   "raw": ""
-# }
-
-SYSLOG_RE = re.compile(
-    r"<(?P<pri>\d+)>"
-    r"(?P<ts>\w+\s+\d+\s+\d+:\d+:\d+)\s+"
-    r"(?P<host>\S+)\s+"
-    r"%(?P<facility>\w+)-(?P<severity>\d+)-(?P<mnemonic>\w+):\s+"
-    r"(?P<body>.*)"
+# Regex patterns
+CISCO_CONTEX_PATTERNS = re.compile(
+    r'%([A-Z0-9_]+)-(\d+)-([A-Z0-9_]+):'
 )
+CISCO_TIME_PATTERNS = re.compile(
+    r'(?P<ts>'
+    r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+'
+    r'\d{1,2}\s+'
+    r'\d{2}:\d{2}:\d{2}'
+    r'(?:\.\d+)?'
+    r'(?:\s+\w+)?'
+    r')'
+)
+CISCO_ID_PATTERNS = {
+    "src_ip": [
+        re.compile(r'\[Source:\s*(\d{1,3}(?:\.\d{1,3}){3})\]', re.IGNORECASE),
+        re.compile(r'from\s+(\d{1,3}(?:\.\d{1,3}){3})', re.IGNORECASE),
+        re.compile(r'Src IP:\s*(\d{1,3}(?:\.\d{1,3}){3})', re.IGNORECASE),
+    ],
+    "dst_ip": [
+        re.compile(r'to\s+(\d{1,3}(?:\.\d{1,3}){3})', re.IGNORECASE),
+        re.compile(r'Dst IP:\s*(\d{1,3}(?:\.\d{1,3}){3})', re.IGNORECASE),
+    ],
+    "src_port": [
+        re.compile(r'source port\s+(\d+)', re.IGNORECASE),
+        re.compile(r'from\s+\d{1,3}(?:\.\d{1,3}){3}\s+port\s+(\d+)', re.IGNORECASE),
+    ],
+    "dst_port": [
+        re.compile(r'\[localport:\s*(\d+)\]', re.IGNORECASE),
+        re.compile(r'to\s+\d{1,3}(?:\.\d{1,3}){3}\s+port\s+(\d+)', re.IGNORECASE),
+    ],
+}
 
-def parse_syslog_header(raw: str):
-    m = SYSLOG_RE.match(raw)
-    if not m:
-        return {}
-
-    d = m.groupdict()
-
-    return {
-        "timestamp": datetime.strptime(d["ts"], "%b %d %H:%M:%S"),
-        "hostname": d["host"],
-        "severity": int(d["severity"]),
-        "facility": d["facility"],
-        "mnemonic": d["mnemonic"],
-        "body": d["body"]
+def parse_cisco_log(log_line, year=None):
+    result = {
+        "facility": None,
+        "severity": None,
+        "mnemonic": None,
+        "timestamp": None,
+        "src_ip": None,
+        "src_port": None,
+        "dst_ip": None,
+        "dst_port": None,
+        "log_type" : None,
     }
 
-ACL_RE = re.compile(
-    r"(?P<action>permitted|denied)\s+"
-    r"(?P<proto>\w+)\s+"
-    r"(?P<src_ip>\d+\.\d+\.\d+\.\d+)\((?P<src_port>\d+)\)\s+->\s+"
-    r"(?P<dst_ip>\d+\.\d+\.\d+\.\d+)\((?P<dst_port>\d+)\)"
-)
+    # --- Facility / Severity / Mnemonic / Logtype---
+    context_match = CISCO_CONTEX_PATTERNS.search(log_line)
+    if context_match:
+        result["facility"] = context_match.group(1)
+        result["severity"] = int(context_match.group(2))
+        result["mnemonic"] = context_match.group(3)
+        if result["mnemonic"].startswith("IPACCESSLOG"):
+            result["log_type"] =  "acl"
+        if result["mnemonic"].startswith("SEC_LOGIN"):
+            result["log_type"] = "auth"
+        if result["mnemonic"] in ("LINK", "LINEPROTO"):
+            result["log_type"] = "interface"
+        if result["mnemonic"] == "CONFIG_I":
+            result["log_type"] = "config"
+        else:
+            result["log_type"] = "system"
 
-def parse_acl(body: str):
-    m = ACL_RE.search(body)
-    if not m:
-        return {}
+    # --- Timestamp (Unix) ---
+    time_match = CISCO_TIME_PATTERNS.search(log_line)
+    if time_match:
+        ts_raw = time_match.group("ts")
+        try:
+            # inject year as IOS logs have no year
+            year = year or datetime.utcnow().year
+            ts_clean = re.sub(r'\s+\w+$', '', ts_raw)
+            fmt = "%b %d %H:%M:%S.%f" if "." in ts_clean else "%b %d %H:%M:%S"
+            dt = datetime.strptime(f"{year} {ts_clean}",f"%Y {fmt}")
+            dt = dt.replace(tzinfo=timezone.utc)
+            result["timestamp"] = dt.timestamp()
+        except Exception:
+            pass
 
-    d = m.groupdict()
-    return {
-        "log_type": f"acl_{d['action']}",
-        "src": {
-            "ip": d["src_ip"],
-            "port": int(d["src_port"])
-        },
-        "dst": {
-            "ip": d["dst_ip"],
-            "port": int(d["dst_port"])
-        }
-    }
+    # --- Source / Destination IP / Ports ---
+    for field, regex_list in CISCO_ID_PATTERNS.items():
+        for regex in regex_list:
+            match = regex.search(log_line)
+            if match:
+                value = match.group(1)
+                result[field] = int(value) if field.endswith("_port") else value
+                break
 
-def classify_log(mnemonic: str):
-    if mnemonic.startswith("IPACCESSLOG"):
-        return "acl"
-    if mnemonic.startswith("SEC_LOGIN"):
-        return "auth"
-    if mnemonic in ("LINK", "LINEPROTO"):
-        return "interface"
-    if mnemonic == "CONFIG_I":
-        return "config"
-    return "system"
+    return result
 
-def auto_event(event_in):
+def evaluate_condition(field_value, operator, condition_value):
+    if field_value is None:
+        return False
+    # normalize types
+    try:
+        if isinstance(field_value, int):
+            condition_value = int(condition_value)
+    except ValueError:
+        pass
+    if operator == "eq":
+        return field_value == condition_value
+    if operator == "neq":
+        return field_value != condition_value
+    if operator == "contains":
+        return str(condition_value).lower() in str(field_value).lower()
+    if operator == "in":
+        return field_value in condition_value.split(",")
+    if operator == "gt":
+        return field_value > condition_value
+    if operator == "lt":
+        return field_value < condition_value
+    if operator == "gte":
+        return field_value >= condition_value
+    if operator == "lte":
+        return field_value <= condition_value
+
+    return False
+
+def match_rules(parsed_log: dict, rules: list):
+    matched_rules = []
+    for rule in rules:
+        if not rule.enabled:
+            continue
+        rule_matched = True
+        for condition in rule.conditions:
+            field = condition.field
+            operator = condition.operator
+            value = condition.value
+            field_value = parsed_log.get(field)
+            if not evaluate_condition(field_value, operator, value):
+                rule_matched = False
+                break
+        if rule_matched:
+            matched_rules.append(rule)
+
+    return matched_rules
+
+# create event
+def auto_event(event_in, db):
     asset = db.query(Asset).get(event_in.asset_id)
     if not asset:
-        raise HTTPException(status_code=404, detail="Event not found")
+        raise HTTPException(status_code=404, detail="Asset not found")
     event = Event(**event_in.dict())
     db.add(event)
     db.commit()
     return event
 
-def auto_alert(alert_in):
+# create alert
+def auto_alert(alert_in, db):
     rule = db.query(Rule).get(alert_in.rule_id)
     event = db.query(Event).get(alert_in.event_id)
     if not rule or not event:
@@ -389,7 +456,8 @@ def auto_alert(alert_in):
     db.commit()
     return alert
 
-def auto_incident(inc_in):
+# create incident
+def auto_incident(inc_in, db):
     incident = Incident(
         title=inc_in.title,
         description=inc_in.description,
@@ -406,187 +474,83 @@ def auto_incident(inc_in):
     db.add(incident)
     db.commit()
 
-from datetime import timedelta
-import operator
-
-OPERATORS = {
-    "eq": operator.eq,
-    "neq": operator.ne,
-    "lt": operator.lt,
-    "lte": operator.le,
-    "gt": operator.gt,
-    "gte": operator.ge,
-    "contains": lambda a, b: b in a if a else False,
-    "startswith": lambda a, b: a.startswith(b) if a else False,
-    "endswith": lambda a, b: a.endswith(b) if a else False,
-}
-
-def evaluate_condition(
-    condition: RuleCondition,
-    context: dict,
-    db,
-    asset_id: int,
-) -> bool:
-    field = condition.field
-    operator_name = condition.operator
-    raw_value = condition.value
-
-    # --- THRESHOLD CONDITION ---
-    # value format: "<count>|<seconds>"
-    if operator_name == "count_gte":
-        if field not in context or not context[field]:
-            return False
-
-        try:
-            threshold, seconds = map(int, raw_value.split("|"))
-        except ValueError:
-            return False
-
-        window_start = context["timestamp"] - timedelta(seconds=seconds)
-
-        count = (
-            db.query(Event)
-            .filter(
-                Event.asset_id == asset_id,
-                Event.event_type == context["event_type"],
-                Event.created_at >= window_start,
-                Event.message.contains(str(context[field])),
-            )
-            .count()
+def detect_event_burst(db: Session, asset_id: int, event_type: str) -> bool:
+    window_start = datetime.utcnow() - timedelta(minutes=3)
+    event_count = (
+        db.query(func.count(Event.id))
+        .filter(
+            Event.asset_id == asset_id,
+            Event.event_type == event_type,
+            Event.timestamp >= window_start,
         )
-
-        return count >= threshold
-
-    # --- SIMPLE FIELD COMPARISON ---
-    field_value = context.get(field)
-    if field_value is None:
-        return False
-
-    op = OPERATORS.get(operator_name)
-    if not op:
-        return False
-
-    # type coercion
-    if isinstance(field_value, int):
-        try:
-            raw_value = int(raw_value)
-        except ValueError:
-            return False
-
-    return op(field_value, raw_value)
-
-
-def evaluate_rule(rule: Rule, context: dict) -> bool:
-    if not rule.enabled:
-        return False
-
-    for condition in rule.conditions:
-        if not evaluate_condition(condition, context):
-            return False
-
-    return True
-
-def analyze_payload(payload: dict):
-    raw = payload.get("message", "")
-
-    header = parse_syslog_header(raw)
-    if not header:
-        return {"raw": raw}
-
-    log_type = classify_log(header["mnemonic"])
-    src = {"ip": None}
-    dst = {"ip": None}
-
-    # --- AUTH FAILURE NORMALIZATION ---
-    if log_type == "auth":
-        m = AUTH_FAIL_RE.search(header["body"])
-        if m:
-            src["ip"] = m.group("src_ip")
-            log_type = "auth_failed"
-
-    asset = (
-        db.query(Asset)
-        .filter(Asset.hostname == header["hostname"])
-        .first()
+        .scalar()
     )
-    if not asset:
-        return {"raw": raw}
+    return event_count >= 3
 
-    # --- CREATE EVENT ---
-    event = auto_event({
-        "event_type": log_type,
-        "severity": header["severity"],
-        "message": header["body"],
-        "asset_id": asset.id,
-    })
-
-    # --- BUILD RULE CONTEXT ---
-    context = {
-        "event_type": log_type,
-        "severity": header["severity"],
-        "hostname": header["hostname"],
-        "src_ip": src["ip"],
-        "dst_ip": dst["ip"],
-        "timestamp": header["timestamp"],
-        "message": header["body"],
-    }
-
-    # --- RULE EVALUATION ---
-    rules = (
-        db.query(Rule)
-        .filter(Rule.enabled == True)
-        .options(selectinload(Rule.conditions))
+def detect_alert_burst(asset_id: int, event_type: str, db) -> bool:
+    window_start = datetime.utcnow() - timedelta(minutes=5)
+    alerts = (
+        db.query(Alert)
+        .join(Event)
+        .filter(
+            Event.asset_id == asset_id,
+            Event.timestamp >= window_start,
+        )
+        .order_by(Event.timestamp.desc())
+        .limit(3)
         .all()
     )
+    if len(alerts) < 3:
+        return []
+    consecutive_alerts = []
+    for alert in alerts:
+        if alert.event.event_type != event_type:
+            break
+        consecutive_alerts.append(alert)
+    if len(consecutive_alerts) == 3:
+        return [a.id for a in consecutive_alerts]
+    return []
 
-    for rule in rules:
-        matched = True
+def get_existing_incident(db, asset_id: int, event_type: str):
+    window_start = datetime.utcnow() - timedelta(minutes=60)
+    return (
+        db.query(Incident)
+        .join(Incident.alerts)
+        .join(Alert.event)
+        .filter(
+            Incident.status == "open",
+            Event.asset_id == asset_id,
+            Event.event_type == event_type,
+            Incident.created_at >= window_start,
+        )
+        .first()
+    )
 
-        for condition in rule.conditions:
-            if not evaluate_condition(
-                condition=condition,
-                context=context,
-                db=db,
-                asset_id=asset.id,
-            ):
-                matched = False
-                break
-
-        if not matched:
-            continue
-
-        alert = auto_alert({
-            "severity": rule.severity,
-            "status": "open",
-            "rule_id": rule.id,
-            "event_id": event.id,
-        })
-
-        auto_incident({
-            "title": rule.name,
-            "description": rule.description,
-            "status": "open",
-            "severity": rule.severity,
-            "alert_ids": [alert.id],
-        })
-
-    return {
-        "timestamp": header["timestamp"].isoformat(),
-        "device": {
-            "vendor": "Cisco",
-            "hostname": header["hostname"],
-        },
-        "severity": header["severity"],
-        "log_type": log_type,
-        "src": src,
-        "dst": dst,
-        "raw": raw,
-    }
+# analyze the incomming log
+def analyze_payload(log, db):
+    log_line = log["log"]
+    parsed_log = parse_cisco_log(log_line)
+    rules = db.query(Rule).options(joinedload(Rule.conditions)).all()
+    matched_rules = match_rules(parsed_log, rules)
+    if any(matched_rules):
+        asset = db.query(Asset).filter(Asset.ip_address == parsed_log["src_ip"]).first()
+        event = auto_event(EventCreate(event_type=str(parsed_log["log_type"]), severity=str(parsed_log["severity"]), message=str(f'{matched_rules[0].id}-{matched_rules[0].name}'), asset_id=asset.id),db)
+        if parsed_log["severity"] < 5 and detect_event_burst(db, asset.id, parsed_log["log_type"]):
+            if existing_incident:= get_existing_incident(db, asset.id, parsed_log["log_type"]):
+                alert = auto_alert(AlertCreate(severity=str(parsed_log["severity"]),status="open",rule_id=matched_rules[0].id,event_id=event.id,),db)
+                existing_incident.alerts.append(alert)
+                db.commit()
+            else:
+                if alert_ids := detect_alert_burst(asset.id, parsed_log["log_type"], db):
+                    incident = auto_incident(IncidentCreate(title=f"{matched_rules[0].id}-{matched_rules[0].name}",description=matched_rules[0].description,status="open",severity=str(parsed_log["severity"]),alert_ids=alert_ids),db)
+                else:
+                    alert = auto_alert(AlertCreate(severity=str(parsed_log["severity"]),status="open",rule_id=matched_rules[0].id,event_id=event.id,),db)
+        return event.id
 
 @app.post("/rawlogs/", status_code=201)
 async def rawlogs(payload: dict, db: Session = Depends(get_db)):
-    analysis = analyze_payload(payload)
-    rawlog = RawLog(raw_payload=analysis, event_id=1)
+    event_id = analyze_payload(payload,db)
+    rawlog = RawLog(raw_payload=payload, event_id=event_id)
     db.add(rawlog)
     db.commit()
     return {"status": "ok"}
