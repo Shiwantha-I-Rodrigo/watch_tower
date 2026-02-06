@@ -46,15 +46,25 @@ type Alert = {
     event?: Event | null;
 };
 
-// fetch alerts
-export function AlertTable() {
-  const { data: alerts = [], isLoading, error } = useQuery<Alert[]>({
-    queryKey: ["alerts"],
+type Incident = {
+    id: number;
+    title: string;
+    description: string;
+    status: string;
+    severity: string;
+    created_at: string;
+    alerts: Alert[];
+};
+
+// fetch incidents
+export function IncidentsTable() {
+  const { data: incidents = [], isLoading, error } = useQuery<Incident[]>({
+    queryKey: ["incidents"],
     queryFn: async () => {
       const res = await fetch(
-        `http://127.0.0.1:8000/alerts/?skip=0&limit=${PAGE_LIMIT}`
+        `http://127.0.0.1:8000/incidents/?skip=0&limit=${PAGE_LIMIT}`
       );
-      if (!res.ok) throw new Error("Failed to fetch alerts");
+      if (!res.ok) throw new Error("Failed to fetch incidents");
       return res.json();
     },
     refetchInterval: 10000,
@@ -63,45 +73,45 @@ export function AlertTable() {
   });
 
   if (isLoading) return <div>Loading…</div>;
-  if (error) return <div>Error loading alerts</div>;
+  if (error) return <div>Error loading incidents</div>;
 
-  return <AlertsTable alerts={alerts} />;
+  return <IncidentTable incidents={incidents} />;
 }
 
 const severityRowStyle = (severity: string): React.CSSProperties => {
   switch (severity.toLowerCase()) {
-    case "critical":
-      return { color: "#b91c1c", fontWeight: "600" };
-    case "high":
-      return { color: "#dc2626" };
-    case "medium":
-      return { color: "#d97706" };
-    case "low":
-      return { color: "#F2F7FA" };
+    case "1":
+      return { color: "#ff0000ff", fontWeight: "600" };
+    case "2":
+      return { color: "#dc5126ff" };
+    case "3":
+      return { color: "#d9a106ff" };
+    case "4":
+      return { color: "#ecea78ff" };
     default:
       return { color: "#F2F7FA" };
   }
 };
 
-export const AlertsTable = ({ alerts }: { alerts: Alert[] }) => (
+export const IncidentTable = ({ incidents }: { incidents: Incident[] }) => (
   <table style={{ width: "100%", borderCollapse: "collapse" }}>
     <thead>
       <tr>
         <th>Time</th>
+        <th>Rule</th>
         <th>Severity</th>
         <th>Status</th>
-        <th>Source</th>
-        <th>Message</th>
+        <th>Alerts</th>
       </tr>
     </thead>
     <tbody>
-      {alerts.map(alert => (
-        <tr key={alert.id} style={severityRowStyle(alert.severity)}>
-          <td>{alert.created_at}</td>
-          <td>{alert.severity}</td>
-          <td>{alert.status}</td>
-          <td>{alert.event?.asset.hostname} - {alert.event?.asset.ip_address}</td>
-          <td>{alert.event?.message}</td>
+      {incidents.map(incident => (
+        <tr key={incident.id} style={severityRowStyle(incident.severity)}>
+          <td>{incident.created_at}</td>
+          <td>{incident.title}</td>
+          <td>{incident.severity}</td>
+          <td>{incident.status}</td>
+          <td>{incident.alerts?.length ?? 0}</td>
         </tr>
       ))}
     </tbody>

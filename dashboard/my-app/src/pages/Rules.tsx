@@ -286,7 +286,8 @@ function RuleManagement() {
                             </tbody>
                         </table>
                     </div>
-                    <div className="card-body row justify-content-center">
+                    <div className="card-body d-flex flex-column h-100">
+                    <div className="row justify-content-center mt-auto">
                         <div className="col-3">
                             <button type="button" className="btn blue_b w-100" disabled={page === 0} onClick={() => handlePrev()}>Previous</button>
                         </div>
@@ -299,6 +300,7 @@ function RuleManagement() {
                         <div className="col-3">
                             <button type="button" className="btn blue_b w-100" disabled={!hasMore} onClick={() => handleNext()}>Next</button>
                         </div>
+                    </div>
                     </div>
                 </div>
             </div>
@@ -318,9 +320,9 @@ function RuleManagement() {
 
                     <div className="card-body">
                         <form
-                            onSubmit={selectedRule?.id ? handleUpdate : handleCreate}
+                            onSubmit={selectedRule?.id ? handleUpdate : handleCreate} 
+                            className="h-100 d-flex flex-column"
                         >
-
                             {/* Rule Name */}
                             <div className="row mb-2">
                                 <div className="col-4">
@@ -402,7 +404,7 @@ function RuleManagement() {
                                             <label>Field</label>
                                         </div>
                                         <div className="col-8">
-                                            <input
+                                            <select
                                                 className="rounded border border-2 border-dark text-light bg-dark w-100"
                                                 name="field"
                                                 value={cond.field}
@@ -410,7 +412,18 @@ function RuleManagement() {
                                                     handleConditionChange(index, e)
                                                 }
                                                 required
-                                            />
+                                            >
+                                                <option value="">Select</option>
+                                                <option value="facility">facility</option>
+                                                <option value="severity">severity</option>
+                                                <option value="mnemonic">mnemonic</option>
+                                                <option value="timestamp">timestamp</option>
+                                                <option value="src_ip">src_ip</option>
+                                                <option value="src_port">src_port</option>
+                                                <option value="dst_ip">dst_ip</option>
+                                                <option value="dst_port">dst_port</option>
+                                                <option value="log_type">log_type</option>
+                                            </select>
                                         </div>
                                     </div>
 
@@ -436,9 +449,7 @@ function RuleManagement() {
                                                 <option value="gt">gt</option>
                                                 <option value="gte">gte</option>
                                                 <option value="contains">contains</option>
-                                                <option value="startswith">startswith</option>
-                                                <option value="endswith">endswith</option>
-                                                <option value="count_gte">count_gte</option>
+                                                <option value="in">in</option>
                                             </select>
                                         </div>
                                     </div>
@@ -478,8 +489,23 @@ function RuleManagement() {
                                 + Add Condition
                             </button>
 
+                            <div className="row mb-2">
+                                <div className="col-3">
+                                    <label>Suggested Values</label>
+                                </div>
+                                <div className="col-9">
+                                    <ul className="text-start">
+                                        <li>facility - SYS / LINK / LINEPROTO / SEC / SEC_LOGIN / OSPF / BGP / PLATFORM / DHCP / AAA</li>
+                                        <li>severity - 1 / 2 / 3 / 4 / 5</li>
+                                        <li>mnemonic - CONFIG_I / RESTART / CPUHOG / MEMORY / UPDOWN / IPACCESSLOGP / IPACCESSLOGD / LOGIN_FAILED / LOGIN_SUCCESS / PWR_FAIL / PWR_OK / FAN_FAIL / IP_ASSIGNED / IP_EXPIRED / USER_AUTH /  AUTH_FAIL</li>
+                                        <li>log_type - config / system_restart / system_cpu / system_memory / interface / acl_permit / acl_deny / auth_fail / auth_pass / routing / system_power_fail / system_power_ok / system_fan_fail / dhcp_assigned / dhcp_expired / auth / auth_fail</li>
+                                    </ul>
+                                </div>
+                            </div>
+
                             {/* Actions */}
-                            <div className="row">
+                            <div className="card-body d-flex flex-column h-100 p-0">
+                            <div className="row justify-content-center mt-auto">
                                 <div className="col-6" />
                                 <div className="col-3">
                                     <button
@@ -498,6 +524,7 @@ function RuleManagement() {
                                         Cancel
                                     </button>
                                 </div>
+                            </div>
                             </div>
 
                         </form>

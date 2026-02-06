@@ -223,6 +223,27 @@ $ npm run dev
 | **Environmental (limited)**     | `PLATFORM-1-FAULT`                                            | 3750               | Hardware/platform fault              | ⭐⭐⭐     | component                |
 | **DHCP Snooping**               | `DHCP_SNOOPING-5-DHCP_SNOOPING_ENABLED`                       | 2960 / 3750        | DHCP snooping events                 | ⭐⭐⭐     | vlan, interface          |
 
+## facilities
+| Facility (common) | Description                                                 |
+| ----------------- | ----------------------------------------------------------- |
+| SYS               | System events (startup, shutdown, configuration)            |
+| LINK              | Interface link state changes                                |
+| LINEPROTO         | Line protocol changes (interface up/down at protocol layer) |
+| SEC               | Security-related logs (ACL, firewall)                       |
+| SEC_LOGIN         | Login/authentication events                                 |
+| CONFIG            | Configuration change events                                 |
+| OSPF              | OSPF routing events                                         |
+| BGP               | BGP routing events                                          |
+| IP                | IP layer events (routing, packets, etc.)                    |
+| PLATFORM          | Hardware/Platform events (power, fans)                      |
+| DHCP              | DHCP server/client messages                                 |
+| SNMP              | SNMP notifications                                          |
+| NTP               | Time sync events                                            |
+| AAA               | Authentication, Authorization, Accounting messages          |
+| ROUTING           | Generic routing protocol events                             |
+| HSRP              | Hot Standby Router Protocol events                          |
+
+
 ## Severity levels
 | Severity | Meaning       | Common             |
 | -------- | ------------- | ------------------ |
@@ -233,9 +254,350 @@ $ npm run dev
 | 6        | Informational | Extremely common   |
 | 7        | Debug         | Usually disabled   |
 
+## Mnemonics
+| Facility  | Mnemonic Examples                 | Description                                  |
+| --------- | --------------------------------- | -------------------------------------------- |
+| SYS       | CONFIG_I, RESTART, CPUHOG, MEMORY | Config change, restart, high CPU, low memory |
+| LINK      | UPDOWN                            | Interface link status change                 |
+| LINEPROTO | UPDOWN                            | Protocol up/down events                      |
+| SEC       | IPACCESSLOGP, IPACCESSLOGD        | ACL permit/deny logs                         |
+| SEC_LOGIN | LOGIN_FAILED, LOGIN_SUCCESS       | Authentication events                        |
+| OSPF      | ADJCHG                            | Neighbor adjacency change                    |
+| BGP       | ADJCHANGE                         | BGP neighbor up/down                         |
+| PLATFORM  | PWR_FAIL, PWR_OK, FAN_FAIL        | Hardware events                              |
+| DHCP      | IP_ASSIGNED, IP_EXPIRED           | DHCP address events                          |
+| AAA       | USER_AUTH, AUTH_FAIL              | Authentication/authorization events          |
+
+
 ## RuleCondition Table (example)
-| field      | operator | value        |
-| ---------- | -------- | ------------ |
-| event_type | eq       | auth_failed  |
-| src_ip     | neq      | 127.0.0.1    |
-| message    | contains | Login failed |
+
+### **1. Detect Failed Logins**
+
+| field    | operator | value        |
+| -------- | -------- | ------------ |
+| log_type | eq       | auth         |
+| message  | contains | login failed |
+| severity | gte      | 4            |
+
+---
+
+### **3. Detect Configuration Changes**
+
+| field    | operator | value                |
+| -------- | -------- | -------------------- |
+| log_type | eq       | config               |
+| message  | contains | configuration change |
+| severity | gte      | 3                    |
+
+---
+
+### **4. Detect Interface Down Events**
+
+| field    | operator | value     |
+| -------- | -------- | --------- |
+| log_type | eq       | interface |
+| message  | contains | down      |
+| severity | gte      | 3         |
+
+---
+
+### **5. Detect High-Severity System Errors**
+
+| field    | operator | value |
+| -------- | -------- | ----- |
+| severity | gte      | 7     |
+| log_type | neq      | debug |
+
+---
+
+### **6. Detect Traffic from Specific IPs**
+
+| field    | operator | value                 |
+| -------- | -------- | --------------------- |
+| src_ip   | in       | 192.168.1.10,10.0.0.5 |
+| log_type | eq       | traffic               |
+
+---
+
+### **7. Detect Port Scanning Attempts**
+
+| field    | operator | value   |
+| -------- | -------- | ------- |
+| log_type | eq       | traffic |
+| src_port | lt       | 1024    |
+| dst_port | gt       | 1024    |
+| message  | contains | scan    |
+
+---
+
+### **8. Detect Denial of Service (DoS)**
+
+| field    | operator | value            |
+| -------- | -------- | ---------------- |
+| log_type | eq       | traffic          |
+| src_ip   | neq      | internal_network |
+| message  | contains | flood            |
+| severity | gte      | 6                |
+
+---
+
+Feb 06 2026 09:01:05 %SYS-5-CONFIG_I: Configured from console by vty0 (10.1.1.50)
+{
+  "facility": "SYS",
+  "severity": 5,
+  "mnemonic": "CONFIG_I",
+  "timestamp": "2026-02-06 09:01:05",
+  "src_ip": null,
+  "src_port": null,
+  "dst_ip": null,
+  "dst_port": null,
+  "log_type": "config"
+}
+
+Feb 06 2026 09:02:11 %SEC-6-IPACCESSLOGP: list 101 denied tcp 203.0.113.10(44512) -> 192.168.10.5(22), 1 packet
+{
+  "facility": "SEC",
+  "severity": 6,
+  "mnemonic": "IPACCESSLOGP",
+  "timestamp": "2026-02-06 09:02:11",
+  "src_ip": null,
+  "src_port": null,
+  "dst_ip": null,
+  "dst_port": null,
+  "log_type": "acl_permit"
+}
+
+Feb 06 2026 09:03:18 %LINK-3-UPDOWN: Interface GigabitEthernet0/0, changed state to down
+{
+  "facility": "LINK",
+  "severity": 3,
+  "mnemonic": "UPDOWN",
+  "timestamp": "2026-02-06 09:03:18",
+  "src_ip": null,
+  "src_port": null,
+  "dst_ip": null,
+  "dst_port": null,
+  "log_type": "interface"
+}
+
+Feb 06 2026 09:03:19 %LINEPROTO-5-UPDOWN: Line protocol on Interface GigabitEthernet0/0, changed state to down
+{
+  "facility": "LINEPROTO",
+  "severity": 5,
+  "mnemonic": "UPDOWN",
+  "timestamp": "2026-02-06 09:03:19",
+  "src_ip": null,
+  "src_port": null,
+  "dst_ip": null,
+  "dst_port": null,
+  "log_type": "interface"
+}
+
+
+Feb 06 2026 09:04:42 %LINK-3-UPDOWN: Interface GigabitEthernet0/0, changed state to up
+{
+  "facility": "LINK",
+  "severity": 3,
+  "mnemonic": "UPDOWN",
+  "timestamp": "2026-02-06 09:04:42",
+  "src_ip": null,
+  "src_port": null,
+  "dst_ip": null,
+  "dst_port": null,
+  "log_type": "interface"
+}
+
+Feb 06 2026 09:04:43 %LINEPROTO-5-UPDOWN: Line protocol on Interface GigabitEthernet0/0, changed state to up
+{
+  "facility": "LINEPROTO",
+  "severity": 5,
+  "mnemonic": "UPDOWN",
+  "timestamp": "2026-02-06 09:04:43",
+  "src_ip": null,
+  "src_port": null,
+  "dst_ip": null,
+  "dst_port": null,
+  "log_type": "interface"
+}
+
+Feb 06 2026 09:05:30 %SYS-5-RESTART: System restarted --
+{
+  "facility": "SYS",
+  "severity": 5,
+  "mnemonic": "RESTART",
+  "timestamp": "2026-02-06 09:05:30",
+  "src_ip": null,
+  "src_port": null,
+  "dst_ip": null,
+  "dst_port": null,
+  "log_type": "system_restart"
+}
+
+Feb 06 2026 09:06:22 %SEC_LOGIN-4-LOGIN_FAILED: Login failed [user: admin] [Source: 198.51.100.20] [localport: 22]
+{
+  "facility": "SEC_LOGIN",
+  "severity": 4,
+  "mnemonic": "LOGIN_FAILED",
+  "timestamp": "2026-02-06 09:06:22",
+  "src_ip": "198.51.100.20",
+  "src_port": null,
+  "dst_ip": null,
+  "dst_port": 22,
+  "log_type": "auth_fail"
+}
+
+Feb 06 2026 09:07:01 %SEC_LOGIN-5-LOGIN_SUCCESS: Login Success [user: admin] [Source: 10.1.1.10] [localport: 22]
+{
+  "facility": "SEC_LOGIN",
+  "severity": 5,
+  "mnemonic": "LOGIN_SUCCESS",
+  "timestamp": "2026-02-06 09:07:01",
+  "src_ip": "10.1.1.10",
+  "src_port": null,
+  "dst_ip": null,
+  "dst_port": 22,
+  "log_type": "auth_pass"
+}
+
+Feb 06 2026 09:08:44 %OSPF-5-ADJCHG: Process 1, Nbr 10.0.0.2 on GigabitEthernet0/1 from FULL to DOWN, Neighbor Down
+{
+  "facility": "OSPF",
+  "severity": 5,
+  "mnemonic": "ADJCHG",
+  "timestamp": "2026-02-06 09:08:44",
+  "src_ip": null,
+  "src_port": null,
+  "dst_ip": null,
+  "dst_port": null,
+  "log_type": "routing"
+}
+
+Feb 06 2026 09:09:12 %OSPF-5-ADJCHG: Process 1, Nbr 10.0.0.2 on GigabitEthernet0/1 from DOWN to FULL, Loading Done
+{
+  "facility": "OSPF",
+  "severity": 5,
+  "mnemonic": "ADJCHG",
+  "timestamp": "2026-02-06 09:09:12",
+  "src_ip": null,
+  "src_port": null,
+  "dst_ip": null,
+  "dst_port": null,
+  "log_type": "routing"
+}
+
+Feb 06 2026 09:10:55 %BGP-5-ADJCHANGE: neighbor 192.0.2.1 Down BGP Notification sent
+{
+  "facility": "BGP",
+  "severity": 5,
+  "mnemonic": "ADJCHANGE",
+  "timestamp": "2026-02-06 09:10:55",
+  "src_ip": null,
+  "src_port": null,
+  "dst_ip": null,
+  "dst_port": null,
+  "log_type": "routing"
+}
+
+Feb 06 2026 09:11:32 %BGP-5-ADJCHANGE: neighbor 192.0.2.1 Up
+{
+  "facility": "BGP",
+  "severity": 5,
+  "mnemonic": "ADJCHANGE",
+  "timestamp": "2026-02-06 09:11:32",
+  "src_ip": null,
+  "src_port": null,
+  "dst_ip": null,
+  "dst_port": null,
+  "log_type": "routing"
+}
+
+Feb 06 2026 09:12:19 %SEC-6-IPACCESSLOGP: list 101 permitted udp 10.10.10.5(5353) -> 224.0.0.251(5353), 1 packet
+{
+  "facility": "SEC",
+  "severity": 6,
+  "mnemonic": "IPACCESSLOGP",
+  "timestamp": "2026-02-06 09:12:19",
+  "src_ip": null,
+  "src_port": null,
+  "dst_ip": null,
+  "dst_port": null,
+  "log_type": "acl_permit"
+}
+
+Feb 06 2026 09:13:47 %SYS-4-CPUHOG: Task ran for 3120 msec (3120/3120), process = IP Input
+{
+  "facility": "SYS",
+  "severity": 4,
+  "mnemonic": "CPUHOG",
+  "timestamp": "2026-02-06 09:13:47",
+  "src_ip": null,
+  "src_port": null,
+  "dst_ip": null,
+  "dst_port": null,
+  "log_type": "system_cpu"
+}
+
+Feb 06 2026 09:14:58 %SYS-3-MEMORY: Low memory condition detected
+{
+  "facility": "SYS",
+  "severity": 3,
+  "mnemonic": "MEMORY",
+  "timestamp": "2026-02-06 09:14:58",
+  "src_ip": null,
+  "src_port": null,
+  "dst_ip": null,
+  "dst_port": null,
+  "log_type": "system_memory"
+}
+
+Feb 06 2026 09:15:33 %PLATFORM-2-PWR_FAIL: Power failure detected on power supply 1
+{
+  "facility": "PLATFORM",
+  "severity": 2,
+  "mnemonic": "PWR_FAIL",
+  "timestamp": "2026-02-06 09:15:33",
+  "src_ip": null,
+  "src_port": null,
+  "dst_ip": null,
+  "dst_port": null,
+  "log_type": "system_power_fail"
+}
+
+Feb 06 2026 09:16:21 %PLATFORM-2-PWR_OK: Power restored on power supply 1
+{
+  "facility": "PLATFORM",
+  "severity": 2,
+  "mnemonic": "PWR_OK",
+  "timestamp": "2026-02-06 09:16:21",
+  "src_ip": null,
+  "src_port": null,
+  "dst_ip": null,
+  "dst_port": null,
+  "log_type": "system_power_ok"
+}
+
+Feb 06 2026 09:17:45 %SEC_LOGIN-4-LOGIN_FAILED: Login failed [user: guest] [Source: 203.0.113.99] [localport: 23]
+{
+  "facility": "SEC_LOGIN",
+  "severity": 4,
+  "mnemonic": "LOGIN_FAILED",
+  "timestamp": "2026-02-06 09:17:45",
+  "src_ip": "203.0.113.99",
+  "src_port": null,
+  "dst_ip": null,
+  "dst_port": 23,
+  "log_type": "auth_fail"
+}
+
+Feb 06 2026 09:18:59 %SYS-5-CONFIG_I: Configured from console by admin (console)
+{
+  "facility": "SYS",
+  "severity": 5,
+  "mnemonic": "CONFIG_I",
+  "timestamp": "2026-02-06 09:18:59",
+  "src_ip": null,
+  "src_port": null,
+  "dst_ip": null,
+  "dst_port": null,
+  "log_type": "config"
+}

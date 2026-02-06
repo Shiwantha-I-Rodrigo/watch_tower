@@ -1,6 +1,6 @@
 import { EventGraphs } from "../components/EventGraph";
 import { AssetChart } from "../components/AssetChart";
-import { AlertTable } from "../components/AlertTable";
+import { IncidentsTable } from "../components/AlertTable";
 import { EventPie } from "../components/EventSeverity";
 import { AlertPie } from "../components/AlertSeverity";
 
@@ -33,7 +33,7 @@ function Home() {
                     <h5 className="card-title card_title">Alerts</h5>
                     <img src="src/assets/banner_red.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
-                        <AlertTable />
+                        <IncidentsTable />
                     </div>
                 </div>
             </div>
