@@ -83,13 +83,15 @@ const severityRowStyle = (severity: string): React.CSSProperties => {
     case "1":
       return { color: "#ff0000ff", fontWeight: "600" };
     case "2":
-      return { color: "#dc5126ff" };
+      return { color: "#e62323ff", fontWeight: "600"  };
     case "3":
-      return { color: "#d9a106ff" };
+      return { color: "#fc9d59ff" };
     case "4":
-      return { color: "#ecea78ff" };
+      return { color: "#f5ce59ff" };
+    case "5":
+      return { color: "#f7f3eaff" };
     default:
-      return { color: "#F2F7FA" };
+      return { color: "#ffffffff" };
   }
 };
 

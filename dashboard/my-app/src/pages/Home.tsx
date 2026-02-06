@@ -30,7 +30,7 @@ function Home() {
             </div>
             <div className="col-md-12 col-lg-6">
                 <div className="card h-100">
-                    <h5 className="card-title card_title">Alerts</h5>
+                    <h5 className="card-title card_title">Incidents</h5>
                     <img src="src/assets/banner_red.png" alt="Card image" className="img-fluid"></img>
                     <div className="card-body">
                         <IncidentsTable />

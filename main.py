@@ -270,7 +270,7 @@ FACILITY_MNEMONIC_LOGTYPE_MAP = {
 }
 
 # parse CISCO type logs into a standard format
-def parse_cisco_log(log_line, year=None):
+def parse_cisco_log(db: Session, log_line, year=None):
     result = {
         "facility": None,
         "severity": None,
@@ -309,6 +309,11 @@ def parse_cisco_log(log_line, year=None):
                 value = match.group(1)
                 result[field] = int(value) if field.endswith("_port") else value
                 break
+    
+    if result.get("src_ip") is None:
+        asset = db.query(Asset).order_by(Asset.id.asc()).first()
+        if asset and asset.ip_address:
+            result["src_ip"] = asset.ip_address
 
     return result
 
@@ -416,13 +421,13 @@ def get_existing_incident( asset_id: int, event_type: str, db: Session):
 # analyze the incomming log
 def analyze_payload(log, db: Session):
     log_line = log["log"]
-    parsed_log = parse_cisco_log(log_line,YEAR)
+    parsed_log = parse_cisco_log(db,log_line,YEAR)
     rules = db.query(Rule).options(joinedload(Rule.conditions)).all()
     matched_rules = match_rules(parsed_log, rules)
     if any(matched_rules):
         asset = db.query(Asset).filter(Asset.ip_address == parsed_log["src_ip"]).first()
         event = auto_event(EventCreate(event_type=str(parsed_log["log_type"]), severity=str(parsed_log["severity"]), message=str(f'{matched_rules[0].id}-{matched_rules[0].name}'), asset_id=asset.id),db)
-        if parsed_log["severity"] < 5 and detect_event_burst(asset.id, parsed_log["log_type"],db):
+        if parsed_log["severity"] < 7 and detect_event_burst(asset.id, parsed_log["log_type"],db):
             if existing_incident:= get_existing_incident(asset.id, parsed_log["log_type"],db):
                 alert = auto_alert(AlertCreate(severity=str(parsed_log["severity"]),status="open",rule_id=matched_rules[0].id,event_id=event.id,),db)
                 existing_incident.alerts.append(alert)

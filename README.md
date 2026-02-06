@@ -537,7 +537,7 @@ Feb 06 2026 09:13:47 %SYS-4-CPUHOG: Task ran for 3120 msec (3120/3120), process 
   "log_type": "system_cpu"
 }
 
-Feb 06 2026 09:14:58 %SYS-3-MEMORY: Low memory condition detected
+Feb 06 2026 09:14:58 %SYS-3-MEMORY: Low memory condition detected [Source: 10.1.1.10]
 {
   "facility": "SYS",
   "severity": 3,

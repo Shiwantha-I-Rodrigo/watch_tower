@@ -1,4 +1,4 @@
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend, Label } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Label } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 
 export interface AlertSeverityCountInterface {
@@ -34,19 +34,28 @@ export function AlertPie() {
   return <AlertSeverityPie data={severities} />;
 }
 
-const COLORS = ["#dc2626", "#d97706", "#04548c", "#F2F7FA"];
+const SEVERITY_META: Record<string,{ label: string; color: string }> = {
+  "1": { label: "1-Critical", color: "#771111ff" },
+  "2": { label: "2-Severe",   color: "#ad2424ff" },
+  "3": { label: "3-High",     color: "#ad4e0aff" },
+  "4": { label: "4-Medium",   color: "#9b7505ff" },
+  "5": { label: "5-Low",      color: "#0e6b30ff" },
+  "6": { label: "6-Info",     color: "#173e7eff" },
+};
 
-export const AlertSeverityPie = ({ data }: { data: AlertSeverityCountInterface[] }) => (
-  <ResponsiveContainer width="100%" height={250}>
-    <PieChart>
-      <Label value="Alert Severity" position="top" fill="#F2F7FA" style={{ fontWeight: 600 }}/>
-      <Pie data={data} dataKey="value" nameKey="name" outerRadius={90} stroke="none">
-        {data.map((_, index) => (
-          <Cell key={index} fill={COLORS[index]}/>
-        ))}
-      </Pie>
-      <Tooltip />
-      <Legend layout="vertical" align="right" verticalAlign="middle" formatter={(value, entry: any) => {const { payload } = entry;return `${value}: ${payload.value}`;}}/>
-    </PieChart>
-  </ResponsiveContainer>
+export const AlertSeverityPie = ({data,}: {data: AlertSeverityCountInterface[];}) => (
+    <ResponsiveContainer width="100%" height={250}>
+        <PieChart>
+            <Pie data={data} dataKey="value" nameKey="name" outerRadius={90} stroke="none" labelLine={false}>
+                <Label value="Alert Severity" position="center" fill="#F2F7FA" style={{ fontWeight: 600 }}/>
+                {data.map((entry, index) => (
+                    <Cell key={index} fill={SEVERITY_META[entry.name]?.color ?? "#64748B"}/>
+                ))}
+            </Pie>
+            <Legend layout="vertical" align="right" verticalAlign="middle" formatter={(value, entry: any) => {
+                const label = SEVERITY_META[value]?.label ?? value;
+                return `${label}: ${entry.payload.value}`;
+            }}/>
+        </PieChart>
+    </ResponsiveContainer>
 );
