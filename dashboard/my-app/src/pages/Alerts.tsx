@@ -224,7 +224,7 @@ function AlertManagement() {
             <div className={selectedAlert ? "col-md-12 col-lg-6" : "col-12"}>
                 <div className="card h-100">
                     <h5 className="card-title card_title">Alerts</h5>
-                    <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
+                    <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid h-100"></img>
                     <div className="card-body">
                         {/*TABLE*/}
                         <table cellPadding="1" className="w-100">
@@ -283,7 +283,8 @@ function AlertManagement() {
                             </tbody>
                         </table>
                     </div>
-                    <div className="card-body row justify-content-center">
+                    <div className="card-body d-flex flex-column h-100">
+                    <div className="row justify-content-center mt-auto">
                         <div className="col-3">
                             <button type="button" className="btn blue_b w-100" disabled={page === 0} onClick={() => handlePrev()}>Previous</button>
                         </div>
@@ -293,6 +294,7 @@ function AlertManagement() {
                         <div className="col-3">
                             <button type="button" className="btn blue_b w-100" disabled={!hasMore} onClick={() => handleNext()}>Next</button>
                         </div>
+                    </div>
                     </div>
                 </div>
             </div>

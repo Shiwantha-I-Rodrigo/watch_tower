@@ -1,11 +1,11 @@
-
-# cors preventing cors errors with middleware
+# cors import to prevent cors errors with middleware (remove in production)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, HTTPException, Depends, Path
 from sqlalchemy import create_engine, event, func, desc, cast, String, Integer
 from sqlalchemy.orm import sessionmaker, Session, joinedload
 from typing import List
 from datetime import datetime, timedelta, timezone
+from database import get_db
 from models_db import Base, User, Role, UserRole, Asset, Event, RawLog, Rule, RuleCondition, Alert, Incident, AuditLog
 from models_py import ( 
     UserCreate, UserRead, UserUpdate,
@@ -26,16 +26,15 @@ from models_py import (
     )
 import re, operator
 
-
 app = FastAPI()
 
-
+# remove in production
 origins = [
     "http://localhost",
     "http://localhost:5173",
 ]
 
-
+# remove in production
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -44,29 +43,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# database setup
-# full_path : sqlite:////full/path/to/app.db | subfolder : sqlite:///./data/app.db | same folder : sqlite:///example.db
-engine = create_engine("sqlite:///./db/main.db", connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(bind=engine)
-Base.metadata.create_all(engine)
-# auto enable foreign key constraints on sqlite | since sqlite diables foreing key constraints by default for each new connection
-@event.listens_for(engine, "connect")
-def enable_foreign_keys(dbapi_connection, connection_record):
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.close()
-
-
-# dependency to get a DB session
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
+# set current year
 YEAR = "2026"
+
 
 # Users --------------------------------------------------------------------------------------------------------------------
 @app.post("/users/", response_model=UserRead)
