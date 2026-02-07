@@ -229,7 +229,7 @@ function RuleManagement() {
             <div className={selectedRule ? "col-md-12 col-lg-6" : "col-12"}>
                 <div className="card h-100">
                     <h5 className="card-title card_title">Rules</h5>
-                    <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid"></img>
+                    <img src="src/assets/banner_blue.png" alt="Card image" className="img-fluid h-100"></img>
                     <div className="card-body">
                         {/*TABLE*/}
                         <table cellPadding="1" className="w-100">

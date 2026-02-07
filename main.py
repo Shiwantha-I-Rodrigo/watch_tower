@@ -677,4 +677,11 @@ def get_event_trends(db: Session = Depends(get_db)):
 @app.get("/events/source-count", response_model=List[SourceCount])
 def get_top_10_assets(db: Session = Depends(get_db)):
     since = datetime.utcnow() - timedelta(days=1)
-    return ( db.query( Asset.name.label("source"), func.count(Event.id).label("count")).join(Event, Event.asset_id == Asset.id).filter(Event.timestamp >= since).group_by(Asset.id).order_by(func.count(Event.id).desc()).limit(10).all())
+    return (db.query(Asset.name.label("source"),func.count(Event.id).label("count"))
+    .join(Event, Event.asset_id == Asset.id)
+    .filter(Event.timestamp >= since)
+    .group_by(Asset.id, Asset.name)
+    .order_by(Asset.name.asc())   # or .desc()
+    .limit(10)
+    .all()
+)
